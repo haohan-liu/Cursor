@@ -511,8 +511,7 @@ function getCurrentMonth() {
 const currentMonth = getCurrentMonth()
 
 // ==================== 生命周期 ====================
-onMounted(() => {
-  // 加载模拟数据
+onMounted(async () => {
   // 加载数据
   await loadData()
   
