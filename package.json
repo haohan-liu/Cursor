@@ -1,0 +1,36 @@
+{
+  "name": "gear-knob-inventory",
+  "version": "1.0.0",
+  "description": "汽车水晶档把库存管理系统",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "server": "node server/index.js",
+    "start": "concurrently \"npm run dev\" \"npm run server\""
+  },
+  "keywords": ["inventory", "warehouse", "vue3", "mysql"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "vue": "^3.4.15",
+    "axios": "^1.6.5",
+    "html5-qrcode": "^2.3.8",
+    "chart.js": "^4.4.1",
+    "express": "^4.18.2",
+    "mysql2": "^3.6.5",
+    "dotenv": "^16.3.1",
+    "cors": "^2.8.5",
+    "body-parser": "^1.20.2"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.3",
+    "vite": "^5.0.11",
+    "tailwindcss": "^3.4.1",
+    "autoprefixer": "^10.4.17",
+    "postcss": "^8.4.33",
+    "nodemon": "^3.0.2",
+    "concurrently": "^8.2.2"
+  }
+}
