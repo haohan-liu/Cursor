@@ -3,12 +3,6 @@
 -- 数据库名: gear_inventory
 -- =====================================================
 
--- 创建数据库
-CREATE DATABASE IF NOT EXISTS `gear_inventory` 
-    DEFAULT CHARACTER SET utf8mb4 
-    DEFAULT COLLATE utf8mb4_unicode_ci;
-
-USE `gear_inventory`;
 
 -- =====================================================
 -- 1. 商品表 (products)

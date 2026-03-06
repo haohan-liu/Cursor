@@ -1,11 +1,11 @@
 /**
  * 汽车水晶档把库存管理系统 - 后端 API 服务
- * Node.js + Express + MySQL
+ * Node.js + Express + SQLite
  */
 
 const express = require('express')
 const cors = require('cors')
-const mysql = require('mysql2/promise')
+const sqlite3 = require('sqlite3').verbose()
 require('dotenv').config()
 
 const app = express()
@@ -16,26 +16,197 @@ app.use(cors())
 app.use(express.json())
 
 // ==================== 数据库连接 ====================
-const pool = mysql.createPool({
-    host: process.env.DB_HOST || 'localhost',
-    port: process.env.DB_PORT || 3306,
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || 'your_password',
-    database: process.env.DB_NAME || 'gear_inventory',
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0
+const dbPath = process.env.DB_PATH || './inventory.db'
+const db = new sqlite3.Database(dbPath, (err) => {
+    if (err) {
+        console.error('❌ 数据库连接失败:', err.message)
+    } else {
+        console.log('✅ 数据库连接成功！')
+    }
 })
 
-// 测试数据库连接
-async function testConnection() {
-    try {
-        const connection = await pool.getConnection()
-        console.log('✅ 数据库连接成功！')
-        connection.release()
-    } catch (error) {
-        console.error('❌ 数据库连接失败:', error.message)
-    }
+// Promise 封装
+const dbRun = (sql, params = []) => {
+    return new Promise((resolve, reject) => {
+        db.run(sql, params, function(err) {
+            if (err) reject(err)
+            else resolve({ lastID: this.lastID, changes: this.changes })
+        })
+    })
+}
+
+const dbAll = (sql, params = []) => {
+    return new Promise((resolve, reject) => {
+        db.all(sql, params, (err, rows) => {
+            if (err) reject(err)
+            else resolve(rows)
+        })
+    })
+}
+
+const dbGet = (sql, params = []) => {
+    return new Promise((resolve, reject) => {
+        db.get(sql, params, (err, row) => {
+            if (err) reject(err)
+            else resolve(row)
+        })
+    })
+}
+
+// ==================== 数据库初始化 ====================
+function initDatabase() {
+    return new Promise((resolve, reject) => {
+        db.serialize(() => {
+            // 商品表
+            db.run(`
+                CREATE TABLE IF NOT EXISTS products (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    sku_code VARCHAR(50) UNIQUE NOT NULL,
+                    name VARCHAR(100) NOT NULL,
+                    attributes TEXT,
+                    cost_price REAL NOT NULL DEFAULT 0,
+                    current_stock INTEGER NOT NULL DEFAULT 0,
+                    safe_stock INTEGER NOT NULL DEFAULT 0,
+                    image_url VARCHAR(255),
+                    remark VARCHAR(500),
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            `)
+
+            // 库位表
+            db.run(`
+                CREATE TABLE IF NOT EXISTS locations (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    location_code VARCHAR(30) UNIQUE NOT NULL,
+                    product_id INTEGER,
+                    stock INTEGER NOT NULL DEFAULT 0,
+                    max_capacity INTEGER NOT NULL DEFAULT 100,
+                    zone VARCHAR(20),
+                    is_active INTEGER NOT NULL DEFAULT 1,
+                    remark VARCHAR(255),
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (product_id) REFERENCES products(id)
+                )
+            `)
+
+            // 出入库流水表
+            db.run(`
+                CREATE TABLE IF NOT EXISTS inventory_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    product_id INTEGER NOT NULL,
+                    location_id INTEGER,
+                    type TEXT NOT NULL CHECK(type IN ('IN', 'OUT', 'ADJUST', 'TRANSFER')),
+                    quantity INTEGER NOT NULL,
+                    unit_cost REAL NOT NULL DEFAULT 0,
+                    total_cost REAL NOT NULL DEFAULT 0,
+                    reference_no VARCHAR(50),
+                    operator VARCHAR(50),
+                    remark VARCHAR(500),
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (product_id) REFERENCES products(id),
+                    FOREIGN KEY (location_id) REFERENCES locations(id)
+                )
+            `)
+
+            // 用户表
+            db.run(`
+                CREATE TABLE IF NOT EXISTS users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username VARCHAR(50) UNIQUE NOT NULL,
+                    password VARCHAR(255) NOT NULL,
+                    real_name VARCHAR(50),
+                    role TEXT NOT NULL DEFAULT 'WAREHOUSE' CHECK(role IN ('ADMIN', 'WAREHOUSE', 'SALES')),
+                    is_active INTEGER NOT NULL DEFAULT 1,
+                    last_login DATETIME,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            `)
+
+            // 插入测试数据（如果表为空）
+            db.get("SELECT COUNT(*) as count FROM products", async (err, row) => {
+                if (err) {
+                    reject(err)
+                    return
+                }
+
+                if (row.count === 0) {
+                    // 插入测试商品
+                    const products = [
+                        ['SKU-A001', '路虎旋钮-黑钻', '{"螺纹型号":"M12x1.5","颜色":"黑色"}', 85.00, 15, 5],
+                        ['SKU-A002', '路虎旋钮-银钻', '{"螺纹型号":"M14x1.5","颜色":"银色"}', 92.00, 12, 5],
+                        ['SKU-A003', '手动挡-水晶标', '{"LOGO":"BMW","材质":"水晶"}', 45.00, 28, 10],
+                        ['SKU-B001', '手动挡-改装', '{"LOGO":"个性化","材质":"水晶"}', 68.00, 18, 8],
+                        ['SKU-B002', '奔驰旋钮-原厂', '{"颜色":"黑色","型号":"原厂"}', 120.00, 4, 8],
+                        ['SKU-B003', '奔驰AMG旋钮', '{"LOGO":"AMG","颜色":"黑红"}', 185.00, 10, 5],
+                        ['SKU-C001', '保时捷旋钮', '{"型号":"718","颜色":"红色"}', 280.00, 1, 5],
+                        ['SKU-C002', '奥迪RS旋钮', '{"LOGO":"RS","颜色":"黑色"}', 95.00, 8, 5],
+                        ['SKU-D001', '通用档把套', '{"材质":"水晶","规格":"通用"}', 35.00, 32, 10],
+                        ['SKU-E001', '路虎旋钮-白钻', '{"螺纹型号":"M12x1.5","颜色":"白色"}', 88.00, 20, 5]
+                    ]
+
+                    for (const p of products) {
+                        await dbRun(
+                            "INSERT INTO products (sku_code, name, attributes, cost_price, current_stock, safe_stock) VALUES (?, ?, ?, ?, ?, ?)",
+                            p
+                        )
+                    }
+
+                    // 插入测试库位
+                    const locations = [
+                        ['A-01-01', 1, 15, 50, 'A区'],
+                        ['A-01-02', null, 0, 50, 'A区'],
+                        ['A-01-03', 3, 28, 50, 'A区'],
+                        ['A-02-01', null, 0, 50, 'A区'],
+                        ['A-02-02', 2, 12, 50, 'A区'],
+                        ['A-02-03', null, 0, 50, 'A区'],
+                        ['A-03-01', null, 0, 50, 'A区'],
+                        ['A-03-02', null, 0, 50, 'A区'],
+                        ['A-03-03', null, 0, 50, 'A区'],
+                        ['A-03-04', 5, 6, 50, 'A区'],
+                        ['A-04-01', null, 0, 50, 'A区'],
+                        ['A-04-02', null, 0, 50, 'A区'],
+                        ['A-04-03', null, 0, 50, 'A区'],
+                        ['A-04-04', null, 0, 50, 'A区'],
+                        ['A-04-05', null, 0, 50, 'A区'],
+                        ['B-01-01', null, 0, 50, 'B区'],
+                        ['B-01-02', null, 0, 50, 'B区'],
+                        ['B-01-03', null, 0, 50, 'B区'],
+                        ['B-01-04', null, 0, 50, 'B区'],
+                        ['B-01-05', 8, 8, 50, 'B区'],
+                        ['B-02-01', 10, 20, 50, 'B区'],
+                        ['B-02-02', null, 0, 50, 'B区'],
+                        ['B-02-03', 4, 18, 50, 'B区'],
+                        ['B-02-04', null, 0, 50, 'B区'],
+                        ['B-02-05', null, 0, 50, 'B区'],
+                        ['B-03-01', 7, 1, 50, 'B区'],
+                        ['B-03-02', null, 0, 50, 'B区'],
+                        ['B-03-03', null, 0, 50, 'B区'],
+                        ['B-03-04', 6, 10, 50, 'B区'],
+                        ['B-03-05', null, 0, 50, 'B区'],
+                        ['B-04-01', null, 0, 50, 'B区'],
+                        ['B-04-02', 9, 32, 50, 'B区'],
+                        ['B-04-03', null, 0, 50, 'B区'],
+                        ['B-04-04', null, 0, 50, 'B区'],
+                        ['B-04-05', null, 0, 50, 'B区']
+                    ]
+
+                    for (const l of locations) {
+                        await dbRun(
+                            "INSERT INTO locations (location_code, product_id, stock, max_capacity, zone) VALUES (?, ?, ?, ?, ?)",
+                            l
+                        )
+                    }
+
+                    console.log('✅ 测试数据已插入')
+                }
+
+                resolve()
+            })
+        })
+    })
 }
 
 // ==================== 工具函数 ====================
@@ -60,58 +231,58 @@ app.get('/api/stats', async (req, res) => {
         const firstDayOfMonth = formatDate(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
 
         // 今日统计
-        const [todayStats] = await pool.execute(`
-            SELECT 
+        const todayStats = await dbGet(`
+            SELECT
                 COALESCE(SUM(quantity), 0) as total_quantity,
                 COALESCE(SUM(quantity * unit_cost), 0) as total_cost
-            FROM inventory_logs 
+            FROM inventory_logs
             WHERE type = 'OUT' AND DATE(created_at) = ?
         `, [today])
 
         // 昨日统计（用于计算趋势）
         const yesterday = formatDate(new Date(Date.now() - 86400000))
-        const [yesterdayStats] = await pool.execute(`
-            SELECT 
+        const yesterdayStats = await dbGet(`
+            SELECT
                 COALESCE(SUM(quantity), 0) as total_quantity,
                 COALESCE(SUM(quantity * unit_cost), 0) as total_cost
-            FROM inventory_logs 
+            FROM inventory_logs
             WHERE type = 'OUT' AND DATE(created_at) = ?
         `, [yesterday])
 
         // 本月统计
-        const [monthStats] = await pool.execute(`
-            SELECT 
+        const monthStats = await dbGet(`
+            SELECT
                 COALESCE(SUM(quantity), 0) as total_quantity,
                 COALESCE(SUM(quantity * unit_cost), 0) as total_cost
-            FROM inventory_logs 
+            FROM inventory_logs
             WHERE type = 'OUT' AND DATE(created_at) >= ?
         `, [firstDayOfMonth])
 
         // 上月统计（用于计算月环比）
         const firstDayOfLastMonth = formatDate(new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1))
         const lastDayOfLastMonth = formatDate(new Date(new Date().getFullYear(), new Date().getMonth(), 0))
-        const [lastMonthStats] = await pool.execute(`
-            SELECT 
+        const lastMonthStats = await dbGet(`
+            SELECT
                 COALESCE(SUM(quantity), 0) as total_quantity,
                 COALESCE(SUM(quantity * unit_cost), 0) as total_cost
-            FROM inventory_logs 
+            FROM inventory_logs
             WHERE type = 'OUT' AND DATE(created_at) >= ? AND DATE(created_at) <= ?
         `, [firstDayOfLastMonth, lastDayOfLastMonth])
 
         // 计算趋势
-        const todayQty = todayStats[0].total_quantity || 0
-        const yesterdayQty = yesterdayStats[0].total_quantity || 0
+        const todayQty = todayStats?.total_quantity || 0
+        const yesterdayQty = yesterdayStats?.total_quantity || 0
         const todayTrend = yesterdayQty > 0 ? ((todayQty - yesterdayQty) / yesterdayQty * 100).toFixed(1) : 0
 
-        const todayCost = parseFloat(todayStats[0].total_cost) || 0
-        const yesterdayCost = parseFloat(yesterdayStats[0].total_cost) || 0
+        const todayCost = parseFloat(todayStats?.total_cost) || 0
+        const yesterdayCost = parseFloat(yesterdayStats?.total_cost) || 0
         const costTrend = yesterdayCost > 0 ? ((todayCost - yesterdayCost) / yesterdayCost * 100).toFixed(1) : 0
 
-        const monthQty = monthStats[0].total_quantity || 0
-        const monthCost = parseFloat(monthStats[0].total_cost) || 0
+        const monthQty = monthStats?.total_quantity || 0
+        const monthCost = parseFloat(monthStats?.total_cost) || 0
 
-        const lastMonthQty = lastMonthStats[0].total_quantity || 0
-        const lastMonthCost = parseFloat(lastMonthStats[0].total_cost) || 0
+        const lastMonthQty = lastMonthStats?.total_quantity || 0
+        const lastMonthCost = parseFloat(lastMonthStats?.total_cost) || 0
         const monthTrend = lastMonthCost > 0 ? ((monthCost - lastMonthCost) / lastMonthCost * 100).toFixed(1) : 0
 
         res.json({
@@ -140,11 +311,11 @@ app.get('/api/stats/trend', async (req, res) => {
     try {
         const thirtyDaysAgo = formatDate(new Date(Date.now() - 30 * 86400000))
 
-        const [rows] = await pool.execute(`
-            SELECT 
+        const rows = await dbAll(`
+            SELECT
                 DATE(created_at) as date,
                 SUM(quantity) as quantity
-            FROM inventory_logs 
+            FROM inventory_logs
             WHERE type = 'OUT' AND DATE(created_at) >= ?
             GROUP BY DATE(created_at)
             ORDER BY date ASC
@@ -182,8 +353,8 @@ app.get('/api/stats/top-products', async (req, res) => {
     try {
         const firstDayOfMonth = formatDate(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
 
-        const [rows] = await pool.execute(`
-            SELECT 
+        const rows = await dbAll(`
+            SELECT
                 p.id,
                 p.sku_code,
                 p.name,
@@ -212,14 +383,14 @@ app.get('/api/stats/top-products', async (req, res) => {
  */
 app.get('/api/products/low-stock', async (req, res) => {
     try {
-        const [rows] = await pool.execute(`
-            SELECT 
-                id, 
-                sku_code, 
-                name, 
-                current_stock, 
+        const rows = await dbAll(`
+            SELECT
+                id,
+                sku_code,
+                name,
+                current_stock,
                 safe_stock
-            FROM products 
+            FROM products
             WHERE current_stock <= safe_stock
             ORDER BY (safe_stock - current_stock) DESC
         `)
@@ -256,13 +427,14 @@ app.get('/api/products', async (req, res) => {
 
         sql += ' ORDER BY id DESC LIMIT ? OFFSET ?'
 
-        const [countResult] = await pool.execute(countSql, params.slice(0, -2))
-        const [rows] = await pool.execute(sql, [...params.slice(0, -2), parseInt(pageSize), parseInt(offset)])
+        const countParams = params.slice()
+        const countResult = await dbGet(countSql, countParams)
+        const rows = await dbAll(sql, [...params.slice(0, -2), parseInt(pageSize), parseInt(offset)])
 
         res.json({
             success: true,
             data: rows,
-            total: countResult[0].total,
+            total: countResult.total,
             page: parseInt(page),
             pageSize: parseInt(pageSize)
         })
@@ -278,15 +450,15 @@ app.get('/api/products', async (req, res) => {
  */
 app.get('/api/products/:id', async (req, res) => {
     try {
-        const [rows] = await pool.execute('SELECT * FROM products WHERE id = ?', [req.params.id])
+        const row = await dbGet('SELECT * FROM products WHERE id = ?', [req.params.id])
 
-        if (rows.length === 0) {
+        if (!row) {
             return res.status(404).json({ success: false, message: '商品不存在' })
         }
 
         res.json({
             success: true,
-            data: rows[0]
+            data: row
         })
     } catch (error) {
         console.error('获取商品详情失败:', error)
@@ -300,18 +472,18 @@ app.get('/api/products/:id', async (req, res) => {
  */
 app.get('/api/products/sku/:skuCode', async (req, res) => {
     try {
-        const [rows] = await pool.execute(
+        const row = await dbGet(
             'SELECT p.*, l.location_code FROM products p LEFT JOIN locations l ON p.id = l.product_id WHERE p.sku_code = ?',
             [req.params.skuCode]
         )
 
-        if (rows.length === 0) {
+        if (!row) {
             return res.status(404).json({ success: false, message: '商品不存在' })
         }
 
         res.json({
             success: true,
-            data: rows[0]
+            data: row
         })
     } catch (error) {
         console.error('获取商品失败:', error)
@@ -331,8 +503,8 @@ app.post('/api/products', async (req, res) => {
             return res.status(400).json({ success: false, message: '缺少必要参数' })
         }
 
-        const [result] = await pool.execute(
-            `INSERT INTO products (sku_code, name, attributes, cost_price, safe_stock, image_url, remark) 
+        const result = await dbRun(
+            `INSERT INTO products (sku_code, name, attributes, cost_price, safe_stock, image_url, remark)
              VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [sku_code, name, JSON.stringify(attributes), cost_price, safe_stock || 0, image_url, remark]
         )
@@ -340,10 +512,10 @@ app.post('/api/products', async (req, res) => {
         res.json({
             success: true,
             message: '商品创建成功',
-            data: { id: result.insertId }
+            data: { id: result.lastID }
         })
     } catch (error) {
-        if (error.code === 'ER_DUP_ENTRY') {
+        if (error.message && error.message.includes('UNIQUE constraint failed')) {
             return res.status(400).json({ success: false, message: 'SKU条码已存在' })
         }
         console.error('创建商品失败:', error)
@@ -356,62 +528,86 @@ app.post('/api/products', async (req, res) => {
  * 扫码出库接口
  */
 app.post('/api/inventory/out', async (req, res) => {
-    const connection = await pool.getConnection()
+    const { sku_code, quantity = 1, location_id, operator, remark, reference_no } = req.body
+
+    if (!sku_code) {
+        return res.status(400).json({ success: false, message: '缺少SKU条码' })
+    }
+
     try {
-        const { sku_code, quantity = 1, location_id, operator, remark, reference_no } = req.body
+        const product = await dbGet('SELECT id, cost_price, current_stock FROM products WHERE sku_code = ?', [sku_code])
 
-        if (!sku_code) {
-            return res.status(400).json({ success: false, message: '缺少SKU条码' })
-        }
-
-        await connection.beginTransaction()
-
-        // 1. 查询商品信息
-        const [products] = await connection.execute(
-            'SELECT id, cost_price, current_stock FROM products WHERE sku_code = ?',
-            [sku_code]
-        )
-
-        if (products.length === 0) {
-            await connection.rollback()
+        if (!product) {
             return res.status(404).json({ success: false, message: '商品不存在' })
         }
 
-        const product = products[0]
-
-        // 2. 检查库存
+        // 检查库存
         if (product.current_stock < quantity) {
-            await connection.rollback()
-            return res.status(400).json({ 
-                success: false, 
-                message: `库存不足，当前库存: ${product.current_stock}` 
+            return res.status(400).json({
+                success: false,
+                message: `库存不足，当前库存: ${product.current_stock}`
             })
         }
 
         const totalCost = quantity * product.cost_price
 
-        // 3. 写入出库流水
-        await connection.execute(
-            `INSERT INTO inventory_logs (product_id, location_id, type, quantity, unit_cost, total_cost, reference_no, operator, remark)
-             VALUES (?, ?, 'OUT', ?, ?, ?, ?, ?, ?)`,
-            [product.id, location_id || null, quantity, product.cost_price, totalCost, reference_no, operator, remark]
-        )
+        // 使用 serialize 确保事务性
+        await new Promise((resolve, reject) => {
+            db.serialize(() => {
+                db.run('BEGIN TRANSACTION')
 
-        // 4. 扣减商品库存
-        await connection.execute(
-            'UPDATE products SET current_stock = current_stock - ? WHERE id = ?',
-            [quantity, product.id]
-        )
+                // 1. 写入出库流水
+                db.run(
+                    `INSERT INTO inventory_logs (product_id, location_id, type, quantity, unit_cost, total_cost, reference_no, operator, remark)
+                     VALUES (?, ?, 'OUT', ?, ?, ?, ?, ?, ?)`,
+                    [product.id, location_id || null, quantity, product.cost_price, totalCost, reference_no, operator, remark],
+                    function(err) {
+                        if (err) {
+                            db.run('ROLLBACK')
+                            reject(err)
+                            return
+                        }
+                    }
+                )
 
-        // 5. 如果有指定库位，扣减库位库存
-        if (location_id) {
-            await connection.execute(
-                'UPDATE locations SET stock = stock - ? WHERE id = ?',
-                [quantity, location_id]
-            )
-        }
+                // 2. 扣减商品库存
+                db.run(
+                    'UPDATE products SET current_stock = current_stock - ? WHERE id = ?',
+                    [quantity, product.id],
+                    function(err) {
+                        if (err) {
+                            db.run('ROLLBACK')
+                            reject(err)
+                            return
+                        }
+                    }
+                )
 
-        await connection.commit()
+                // 3. 如果有指定库位，扣减库位库存
+                if (location_id) {
+                    db.run(
+                        'UPDATE locations SET stock = stock - ? WHERE id = ?',
+                        [quantity, location_id],
+                        function(err) {
+                            if (err) {
+                                db.run('ROLLBACK')
+                                reject(err)
+                                return
+                            }
+                        }
+                    )
+                }
+
+                db.run('COMMIT', (err) => {
+                    if (err) {
+                        db.run('ROLLBACK')
+                        reject(err)
+                    } else {
+                        resolve()
+                    }
+                })
+            })
+        })
 
         res.json({
             success: true,
@@ -426,11 +622,8 @@ app.post('/api/inventory/out', async (req, res) => {
             }
         })
     } catch (error) {
-        await connection.rollback()
         console.error('出库失败:', error)
         res.status(500).json({ success: false, message: '出库失败' })
-    } finally {
-        connection.release()
     }
 })
 
@@ -439,59 +632,88 @@ app.post('/api/inventory/out', async (req, res) => {
  * 扫码入库接口
  */
 app.post('/api/inventory/in', async (req, res) => {
-    const connection = await pool.getConnection()
+    const { sku_code, quantity = 1, location_id, operator, remark, reference_no, cost_price } = req.body
+
+    if (!sku_code || !quantity) {
+        return res.status(400).json({ success: false, message: '缺少必要参数' })
+    }
+
     try {
-        const { sku_code, quantity = 1, location_id, operator, remark, reference_no, cost_price } = req.body
-
-        if (!sku_code || !quantity) {
-            return res.status(400).json({ success: false, message: '缺少必要参数' })
-        }
-
-        await connection.beginTransaction()
-
         // 1. 查询商品是否存在
-        let productId
         let unitCost = parseFloat(cost_price) || 0
 
-        const [products] = await connection.execute(
+        const product = await dbGet(
             'SELECT id, cost_price, current_stock FROM products WHERE sku_code = ?',
             [sku_code]
         )
 
-        if (products.length > 0) {
-            // 商品存在，使用当前成本价
-            productId = products[0].id
-            unitCost = products[0].cost_price
-        } else {
-            // 商品不存在，需要先创建（这里暂时不支持自动创建，返回错误）
-            await connection.rollback()
+        if (!product) {
             return res.status(404).json({ success: false, message: '商品不存在，请先创建商品' })
         }
 
+        // 商品存在，使用当前成本价
+        unitCost = product.cost_price
+        const productId = product.id
+
         const totalCost = quantity * unitCost
 
-        // 2. 写入入库流水
-        await connection.execute(
-            `INSERT INTO inventory_logs (product_id, location_id, type, quantity, unit_cost, total_cost, reference_no, operator, remark)
-             VALUES (?, ?, 'IN', ?, ?, ?, ?, ?, ?)`,
-            [productId, location_id || null, quantity, unitCost, totalCost, reference_no, operator, remark]
-        )
+        // 使用 serialize 确保事务性
+        await new Promise((resolve, reject) => {
+            db.serialize(() => {
+                db.run('BEGIN TRANSACTION')
 
-        // 3. 增加商品库存
-        await connection.execute(
-            'UPDATE products SET current_stock = current_stock + ? WHERE id = ?',
-            [quantity, productId]
-        )
+                // 2. 写入入库流水
+                db.run(
+                    `INSERT INTO inventory_logs (product_id, location_id, type, quantity, unit_cost, total_cost, reference_no, operator, remark)
+                     VALUES (?, ?, 'IN', ?, ?, ?, ?, ?, ?)`,
+                    [productId, location_id || null, quantity, unitCost, totalCost, reference_no, operator, remark],
+                    function(err) {
+                        if (err) {
+                            db.run('ROLLBACK')
+                            reject(err)
+                            return
+                        }
+                    }
+                )
 
-        // 4. 如果有指定库位，增加库位库存
-        if (location_id) {
-            await connection.execute(
-                'UPDATE locations SET stock = stock + ? WHERE id = ?',
-                [quantity, location_id]
-            )
-        }
+                // 3. 增加商品库存
+                db.run(
+                    'UPDATE products SET current_stock = current_stock + ? WHERE id = ?',
+                    [quantity, productId],
+                    function(err) {
+                        if (err) {
+                            db.run('ROLLBACK')
+                            reject(err)
+                            return
+                        }
+                    }
+                )
 
-        await connection.commit()
+                // 4. 如果有指定库位，增加库位库存
+                if (location_id) {
+                    db.run(
+                        'UPDATE locations SET stock = stock + ? WHERE id = ?',
+                        [quantity, location_id],
+                        function(err) {
+                            if (err) {
+                                db.run('ROLLBACK')
+                                reject(err)
+                                return
+                            }
+                        }
+                    )
+                }
+
+                db.run('COMMIT', (err) => {
+                    if (err) {
+                        db.run('ROLLBACK')
+                        reject(err)
+                    } else {
+                        resolve()
+                    }
+                })
+            })
+        })
 
         res.json({
             success: true,
@@ -502,15 +724,12 @@ app.post('/api/inventory/in', async (req, res) => {
                 quantity,
                 unit_cost: unitCost,
                 total_cost: totalCost,
-                remaining_stock: products.length > 0 ? products[0].current_stock + quantity : quantity
+                remaining_stock: product.current_stock + quantity
             }
         })
     } catch (error) {
-        await connection.rollback()
         console.error('入库失败:', error)
         res.status(500).json({ success: false, message: '入库失败' })
-    } finally {
-        connection.release()
     }
 })
 
@@ -524,7 +743,7 @@ app.get('/api/inventory/logs', async (req, res) => {
         const offset = (page - 1) * pageSize
 
         let sql = `
-            SELECT 
+            SELECT
                 il.*,
                 p.name as product_name,
                 p.sku_code,
@@ -558,7 +777,7 @@ app.get('/api/inventory/logs', async (req, res) => {
 
         sql += ' ORDER BY il.created_at DESC LIMIT ? OFFSET ?'
 
-        const [rows] = await pool.execute(sql, [...params, parseInt(pageSize), parseInt(offset)])
+        const rows = await dbAll(sql, [...params, parseInt(pageSize), parseInt(offset)])
 
         // 格式化 attributes
         const formattedRows = rows.map(row => ({
@@ -586,8 +805,8 @@ app.get('/api/inventory/today-logs', async (req, res) => {
         const startDate = today + ' 00:00:00'
         const endDate = today + ' 23:59:59'
 
-        const [rows] = await pool.execute(`
-            SELECT 
+        const rows = await dbAll(`
+            SELECT
                 il.*,
                 p.name as product_name,
                 p.sku_code,
@@ -620,8 +839,8 @@ app.get('/api/inventory/today-logs', async (req, res) => {
  */
 app.get('/api/locations', async (req, res) => {
     try {
-        const [rows] = await pool.execute(`
-            SELECT 
+        const rows = await dbAll(`
+            SELECT
                 l.*,
                 p.name as product_name,
                 p.sku_code,
@@ -648,8 +867,8 @@ app.get('/api/locations', async (req, res) => {
  */
 app.get('/api/locations/code/:code', async (req, res) => {
     try {
-        const [rows] = await pool.execute(`
-            SELECT 
+        const row = await dbGet(`
+            SELECT
                 l.*,
                 p.name as product_name,
                 p.sku_code,
@@ -660,13 +879,13 @@ app.get('/api/locations/code/:code', async (req, res) => {
             WHERE l.location_code = ?
         `, [req.params.code])
 
-        if (rows.length === 0) {
+        if (!row) {
             return res.status(404).json({ success: false, message: '库位不存在' })
         }
 
         res.json({
             success: true,
-            data: rows[0]
+            data: row
         })
     } catch (error) {
         console.error('获取库位信息失败:', error)
@@ -686,7 +905,7 @@ app.post('/api/locations', async (req, res) => {
             return res.status(400).json({ success: false, message: '缺少库位编码' })
         }
 
-        const [result] = await pool.execute(
+        const result = await dbRun(
             `INSERT INTO locations (location_code, product_id, max_capacity, zone, remark) VALUES (?, ?, ?, ?, ?)`,
             [location_code, product_id || null, max_capacity || 100, zone, remark]
         )
@@ -694,10 +913,10 @@ app.post('/api/locations', async (req, res) => {
         res.json({
             success: true,
             message: '库位创建成功',
-            data: { id: result.insertId }
+            data: { id: result.lastID }
         })
     } catch (error) {
-        if (error.code === 'ER_DUP_ENTRY') {
+        if (error.message && error.message.includes('UNIQUE constraint failed')) {
             return res.status(400).json({ success: false, message: '库位编码已存在' })
         }
         console.error('创建库位失败:', error)
@@ -714,12 +933,12 @@ app.put('/api/products/:id', async (req, res) => {
         const { name, attributes, cost_price, safe_stock, image_url, remark } = req.body
         const { id } = req.params
 
-        const [result] = await pool.execute(
-            `UPDATE products SET name = ?, attributes = ?, cost_price = ?, safe_stock = ?, image_url = ?, remark = ? WHERE id = ?`,
+        const result = await dbRun(
+            `UPDATE products SET name = ?, attributes = ?, cost_price = ?, safe_stock = ?, image_url = ?, remark = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
             [name, JSON.stringify(attributes), cost_price, safe_stock, image_url, remark, id]
         )
 
-        if (result.affectedRows === 0) {
+        if (result.changes === 0) {
             return res.status(404).json({ success: false, message: '商品不存在' })
         }
 
@@ -739,14 +958,14 @@ app.delete('/api/products/:id', async (req, res) => {
         const { id } = req.params
 
         // 检查是否有库存
-        const [products] = await pool.execute('SELECT current_stock FROM products WHERE id = ?', [id])
-        if (products.length > 0 && products[0].current_stock > 0) {
+        const product = await dbGet('SELECT current_stock FROM products WHERE id = ?', [id])
+        if (product && product.current_stock > 0) {
             return res.status(400).json({ success: false, message: '该商品还有库存，无法删除' })
         }
 
-        const [result] = await pool.execute('DELETE FROM products WHERE id = ?', [id])
+        const result = await dbRun('DELETE FROM products WHERE id = ?', [id])
 
-        if (result.affectedRows === 0) {
+        if (result.changes === 0) {
             return res.status(404).json({ success: false, message: '商品不存在' })
         }
 
@@ -766,9 +985,18 @@ app.get('/api/health', (req, res) => {
 })
 
 // ==================== 启动服务器 ====================
-app.listen(PORT, async () => {
-    console.log(`🚀 服务器运行在 http://localhost:${PORT}`)
-    await testConnection()
-})
+async function startServer() {
+    try {
+        await initDatabase()
+        app.listen(PORT, () => {
+            console.log(`🚀 服务器运行在 http://localhost:${PORT}`)
+        })
+    } catch (error) {
+        console.error('❌ 服务器启动失败:', error)
+        process.exit(1)
+    }
+}
+
+startServer()
 
 module.exports = app
