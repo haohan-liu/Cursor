@@ -73,11 +73,11 @@
             </button>
           </div>
           
-          <!-- 连接状态 -->
+          <!-- 扫码枪就绪状态 -->
           <div class="flex items-center gap-2">
-            <div :class="['w-2 h-2 rounded-full', isConnected ? 'bg-emerald-500' : 'bg-slate-500']"></div>
-            <span :class="['text-sm', isConnected ? 'text-emerald-400' : 'text-slate-400']">
-              {{ isConnected ? '已连接' : '未连接' }}
+            <div :class="['w-2 h-2 rounded-full transition-colors duration-500', scannerReady ? 'bg-emerald-500 animate-pulse' : 'bg-slate-500']"></div>
+            <span :class="['text-sm', scannerReady ? 'text-emerald-400' : 'text-slate-400']">
+              {{ scannerReady ? '扫码枪就绪' : '等待扫码' }}
             </span>
           </div>
         </div>
@@ -267,11 +267,56 @@ import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
 import { Html5Qrcode } from 'html5-qrcode'
 import { stockOut, getTodayOutboundLogs } from '@/api'
 
+// ==================== 扫码成功音效 ====================
+const playSuccessSound = () => {
+  try {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)()
+    const oscillator = audioContext.createOscillator()
+    const gainNode = audioContext.createGain()
+
+    oscillator.connect(gainNode)
+    gainNode.connect(audioContext.destination)
+
+    oscillator.frequency.setValueAtTime(880, audioContext.currentTime)
+    oscillator.frequency.setValueAtTime(1108.73, audioContext.currentTime + 0.1)
+
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime)
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3)
+
+    oscillator.start(audioContext.currentTime)
+    oscillator.stop(audioContext.currentTime + 0.3)
+  } catch (e) {
+    console.log('播放音效失败:', e)
+  }
+}
+
+const playErrorSound = () => {
+  try {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)()
+    const oscillator = audioContext.createOscillator()
+    const gainNode = audioContext.createGain()
+
+    oscillator.connect(gainNode)
+    gainNode.connect(audioContext.destination)
+
+    oscillator.frequency.setValueAtTime(200, audioContext.currentTime)
+    oscillator.frequency.setValueAtTime(150, audioContext.currentTime + 0.2)
+
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime)
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4)
+
+    oscillator.start(audioContext.currentTime)
+    oscillator.stop(audioContext.currentTime + 0.4)
+  } catch (e) {
+    console.log('播放音效失败:', e)
+  }
+}
+
 // ==================== 响应式状态 ====================
 const scanMode = ref('pc')  // 'pc' | 'mobile'
 const isScanning = ref(false)
 const isProcessing = ref(false)
-const isConnected = ref(true)
+const scannerReady = ref(false)   // 扫码枪就绪：首次完整扫码后激活，5分钟无操作自动重置
 const lastScannedCode = ref('')
 const showSuccessTip = ref(false)
 const errorMessage = ref('')
@@ -283,7 +328,17 @@ const scanInputRef = ref(null)
 // 扫码枪相关
 let scanBuffer = ''
 let scanTimer = null
-const SCAN_TIMEOUT = 50  // 扫码枪输入间隔阈值(ms)
+let scannerIdleTimer = null          // 5分钟无操作后重置就绪状态
+const SCAN_TIMEOUT = 50              // 扫码枪输入间隔阈值(ms)
+const SCANNER_IDLE_TIMEOUT = 5 * 60 * 1000  // 5分钟
+
+function markScannerReady() {
+  scannerReady.value = true
+  if (scannerIdleTimer) clearTimeout(scannerIdleTimer)
+  scannerIdleTimer = setTimeout(() => {
+    scannerReady.value = false
+  }, SCANNER_IDLE_TIMEOUT)
+}
 
 // 摄像头扫码
 let html5QrCode = null
@@ -315,6 +370,7 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
   stopCamera()
   if (scanTimer) clearTimeout(scanTimer)
+  if (scannerIdleTimer) clearTimeout(scannerIdleTimer)
 })
 
 // ==================== PC端扫码枪处理 ====================
@@ -334,6 +390,9 @@ function handleKeydown(e) {
     if (scanBuffer.trim()) {
       const barcode = scanBuffer.trim()
       scanBuffer = ''  // 清空缓冲区
+      
+      // 首次完整扫码 → 标记扫码枪就绪，并重置空闲计时器
+      markScannerReady()
       
       // 触发扫码处理
       handleScan(barcode)
@@ -391,7 +450,10 @@ async function handleScan(barcode) {
       operator: '操作员',  // TODO: 从登录信息获取
       remark: '扫码出库'
     })
-    
+
+    // 播放成功音效
+    playSuccessSound()
+
     // 显示成功提示
     showSuccessTip.value = true
     
@@ -412,6 +474,8 @@ async function handleScan(barcode) {
     }
     
   } catch (error) {
+    // 播放失败音效
+    playErrorSound()
     errorMessage.value = error.message || '出库失败，请重试'
     
     // 错误提示5秒后消失
@@ -452,11 +516,9 @@ async function startCamera() {
     )
     
     showCamera.value = true
-    isConnected.value = true
   } catch (error) {
     console.error('启动摄像头失败:', error)
     errorMessage.value = '无法启动摄像头，请检查权限'
-    isConnected.value = false
   }
 }
 

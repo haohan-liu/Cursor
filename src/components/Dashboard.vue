@@ -1,18 +1,18 @@
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 p-4 md:p-6">
+  <div class="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-slate-900 dark:to-slate-800 p-4 md:p-6 transition-colors duration-300">
     <div class="max-w-7xl mx-auto">
       <!-- 顶部标题栏 -->
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
         <div>
-          <h1 class="text-2xl md:text-3xl font-bold text-white">数据看板</h1>
-          <p class="text-slate-400">Inventory Dashboard</p>
+          <h1 class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">数据看板</h1>
+          <p class="text-gray-500 dark:text-slate-400">Inventory Dashboard</p>
         </div>
         
         <!-- 导出按钮 -->
         <button
           @click="exportToExcel"
           :disabled="isExporting"
-          class="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-600 text-white rounded-xl font-medium transition-all duration-200 hover:shadow-lg hover:shadow-emerald-500/30 active:scale-95"
+          class="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 disabled:bg-gray-300 dark:disabled:bg-slate-600 text-white rounded-xl font-medium transition-all duration-200 hover:shadow-lg hover:shadow-emerald-500/30 active:scale-95"
         >
           <svg v-if="!isExporting" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -25,16 +25,90 @@
         </button>
       </div>
 
-      <!-- 1. 顶部核心数据卡片 -->
+      <!-- 1. 大屏核心数据卡片 -->
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6">
-        <!-- 今日发货总量 -->
-        <div class="bg-slate-800/80 backdrop-blur-sm rounded-2xl p-5 border border-slate-700/50 hover:border-amber-500/50 transition-all duration-300 group">
+        <!-- 总库存 -->
+        <div class="bg-white dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-200 dark:border-slate-700/50 hover:border-cyan-500/50 transition-all duration-300 group shadow-sm dark:shadow-none">
           <div class="flex items-start justify-between">
             <div>
-              <p class="text-slate-400 text-sm mb-1">今日发货总量</p>
-              <p class="text-3xl font-bold text-white group-hover:text-amber-400 transition-colors">
+              <p class="text-gray-500 dark:text-slate-400 text-sm mb-1">总库存</p>
+              <p class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white group-hover:text-cyan-400 transition-colors">
+                {{ formatNumber(dashboardStats.totalStock) }}
+                <span class="text-lg text-gray-400 dark:text-slate-500 font-normal">件</span>
+              </p>
+            </div>
+            <div class="w-10 h-10 bg-cyan-500/20 rounded-xl flex items-center justify-center">
+              <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- 总资产 -->
+        <div class="bg-white dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-200 dark:border-slate-700/50 hover:border-yellow-500/50 transition-all duration-300 group shadow-sm dark:shadow-none">
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="text-gray-500 dark:text-slate-400 text-sm mb-1">总资产</p>
+              <p class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white group-hover:text-yellow-400 transition-colors">
+                ¥{{ formatMoney(dashboardStats.totalAsset) }}
+              </p>
+            </div>
+            <div class="w-10 h-10 bg-yellow-500/20 rounded-xl flex items-center justify-center">
+              <svg class="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- 本月入库 -->
+        <div class="bg-white dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-200 dark:border-slate-700/50 hover:border-green-500/50 transition-all duration-300 group shadow-sm dark:shadow-none">
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="text-gray-500 dark:text-slate-400 text-sm mb-1">本月入库</p>
+              <p class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white group-hover:text-green-400 transition-colors">
+                {{ formatNumber(dashboardStats.monthIn) }}
+                <span class="text-lg text-gray-400 dark:text-slate-500 font-normal">件</span>
+              </p>
+            </div>
+            <div class="w-10 h-10 bg-green-500/20 rounded-xl flex items-center justify-center">
+              <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- 本月出库 -->
+        <div class="bg-white dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-200 dark:border-slate-700/50 hover:border-orange-500/50 transition-all duration-300 group shadow-sm dark:shadow-none">
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="text-gray-500 dark:text-slate-400 text-sm mb-1">本月出库</p>
+              <p class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white group-hover:text-orange-400 transition-colors">
+                {{ formatNumber(dashboardStats.monthOut) }}
+                <span class="text-lg text-gray-400 dark:text-slate-500 font-normal">件</span>
+              </p>
+            </div>
+            <div class="w-10 h-10 bg-orange-500/20 rounded-xl flex items-center justify-center">
+              <svg class="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16v2a2 2 0 01-2 2H7a2 2 0 01-2-2v-2m4-4V6a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8m-6 4l-4-4" />
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. 今日/本月发货统计 -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6">
+        <!-- 今日发货总量 -->
+        <div class="bg-white dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-200 dark:border-slate-700/50 hover:border-amber-500/50 transition-all duration-300 group shadow-sm dark:shadow-none">
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="text-gray-500 dark:text-slate-400 text-sm mb-1">今日发货总量</p>
+              <p class="text-3xl font-bold text-gray-900 dark:text-white group-hover:text-amber-400 transition-colors">
                 {{ formatNumber(stats.todayQuantity) }}
-                <span class="text-lg text-slate-500 font-normal">件</span>
+                <span class="text-lg text-gray-400 dark:text-slate-500 font-normal">件</span>
               </p>
             </div>
             <div class="w-12 h-12 bg-amber-500/20 rounded-xl flex items-center justify-center">
@@ -47,16 +121,16 @@
             <span :class="stats.todayQuantityTrend >= 0 ? 'text-emerald-400' : 'text-red-400'">
               {{ stats.todayQuantityTrend >= 0 ? '↑' : '↓' }} {{ Math.abs(stats.todayQuantityTrend) }}%
             </span>
-            <span class="text-slate-500">较昨日</span>
+            <span class="text-gray-400 dark:text-slate-500">较昨日</span>
           </div>
         </div>
 
         <!-- 今日发货成本 -->
-        <div class="bg-slate-800/80 backdrop-blur-sm rounded-2xl p-5 border border-slate-700/50 hover:border-emerald-500/50 transition-all duration-300 group">
+        <div class="bg-white dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-200 dark:border-slate-700/50 hover:border-emerald-500/50 transition-all duration-300 group shadow-sm dark:shadow-none">
           <div class="flex items-start justify-between">
             <div>
-              <p class="text-slate-400 text-sm mb-1">今日发货成本</p>
-              <p class="text-3xl font-bold text-white group-hover:text-emerald-400 transition-colors">
+              <p class="text-gray-500 dark:text-slate-400 text-sm mb-1">今日发货成本</p>
+              <p class="text-3xl font-bold text-gray-900 dark:text-white group-hover:text-emerald-400 transition-colors">
                 ¥{{ formatMoney(stats.todayCost) }}
               </p>
             </div>
@@ -70,18 +144,18 @@
             <span :class="stats.todayCostTrend >= 0 ? 'text-emerald-400' : 'text-red-400'">
               {{ stats.todayCostTrend >= 0 ? '↑' : '↓' }} {{ Math.abs(stats.todayCostTrend) }}%
             </span>
-            <span class="text-slate-500">较昨日</span>
+            <span class="text-gray-400 dark:text-slate-500">较昨日</span>
           </div>
         </div>
 
         <!-- 本月发货总量 -->
-        <div class="bg-slate-800/80 backdrop-blur-sm rounded-2xl p-5 border border-slate-700/50 hover:border-blue-500/50 transition-all duration-300 group">
+        <div class="bg-white dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-200 dark:border-slate-700/50 hover:border-blue-500/50 transition-all duration-300 group shadow-sm dark:shadow-none">
           <div class="flex items-start justify-between">
             <div>
-              <p class="text-slate-400 text-sm mb-1">本月发货总量</p>
-              <p class="text-3xl font-bold text-white group-hover:text-blue-400 transition-colors">
+              <p class="text-gray-500 dark:text-slate-400 text-sm mb-1">本月发货总量</p>
+              <p class="text-3xl font-bold text-gray-900 dark:text-white group-hover:text-blue-400 transition-colors">
                 {{ formatNumber(stats.monthQuantity) }}
-                <span class="text-lg text-slate-500 font-normal">件</span>
+                <span class="text-lg text-gray-400 dark:text-slate-500 font-normal">件</span>
               </p>
             </div>
             <div class="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center">
@@ -90,17 +164,17 @@
               </svg>
             </div>
           </div>
-          <div class="mt-3 text-sm text-slate-500">
+          <div class="mt-3 text-sm text-gray-400 dark:text-slate-500">
             <span>{{ currentMonth }}</span>
           </div>
         </div>
 
         <!-- 本月发货成本 -->
-        <div class="bg-slate-800/80 backdrop-blur-sm rounded-2xl p-5 border border-slate-700/50 hover:border-purple-500/50 transition-all duration-300 group">
+        <div class="bg-white dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-200 dark:border-slate-700/50 hover:border-purple-500/50 transition-all duration-300 group shadow-sm dark:shadow-none">
           <div class="flex items-start justify-between">
             <div>
-              <p class="text-slate-400 text-sm mb-1">本月发货成本</p>
-              <p class="text-3xl font-bold text-white group-hover:text-purple-400 transition-colors">
+              <p class="text-gray-500 dark:text-slate-400 text-sm mb-1">本月发货成本</p>
+              <p class="text-3xl font-bold text-gray-900 dark:text-white group-hover:text-purple-400 transition-colors">
                 ¥{{ formatMoney(stats.monthCost) }}
               </p>
             </div>
@@ -110,23 +184,23 @@
               </svg>
             </div>
           </div>
-          <div class="mt-3 text-sm text-slate-500">
+          <div class="mt-3 text-sm text-gray-400 dark:text-slate-500">
             <span>月环比 {{ stats.monthCostTrend >= 0 ? '↑' : '↓' }} {{ Math.abs(stats.monthCostTrend) }}%</span>
           </div>
         </div>
       </div>
 
       <!-- 2. 缺货预警区 -->
-      <div class="bg-slate-800/80 backdrop-blur-sm rounded-2xl border border-slate-700/50 mb-6 overflow-hidden">
-        <div class="p-4 border-b border-slate-700/50 flex items-center gap-3">
+      <div class="bg-white dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl border border-gray-200 dark:border-slate-700/50 mb-6 overflow-hidden shadow-sm dark:shadow-none">
+        <div class="p-4 border-b border-gray-200 dark:border-slate-700/50 flex items-center gap-3">
           <div class="w-10 h-10 bg-red-500/20 rounded-xl flex items-center justify-center">
             <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
           </div>
           <div>
-            <h2 class="text-lg font-bold text-white">缺货预警</h2>
-            <p class="text-slate-400 text-sm">库存低于安全库存，需要补货</p>
+            <h2 class="text-lg font-bold text-gray-900 dark:text-white">缺货预警</h2>
+            <p class="text-gray-500 dark:text-slate-400 text-sm">库存低于安全库存，需要补货</p>
           </div>
           <span class="ml-auto px-3 py-1 bg-red-500/20 text-red-400 text-sm font-medium rounded-full">
             {{ lowStockItems.length }} 项
@@ -142,29 +216,29 @@
         
         <div v-else class="overflow-x-auto">
           <table class="w-full">
-            <thead class="bg-slate-700/30">
+            <thead class="bg-gray-50 dark:bg-slate-700/30">
               <tr>
-                <th class="text-left text-slate-400 text-sm font-medium px-4 py-3">SKU条码</th>
-                <th class="text-left text-slate-400 text-sm font-medium px-4 py-3">产品名称</th>
-                <th class="text-center text-slate-400 text-sm font-medium px-4 py-3">当前库存</th>
-                <th class="text-center text-slate-400 text-sm font-medium px-4 py-3">安全库存</th>
-                <th class="text-center text-slate-400 text-sm font-medium px-4 py-3">状态</th>
+                <th class="text-left text-gray-500 dark:text-slate-400 text-sm font-medium px-4 py-3">SKU条码</th>
+                <th class="text-left text-gray-500 dark:text-slate-400 text-sm font-medium px-4 py-3">产品名称</th>
+                <th class="text-center text-gray-500 dark:text-slate-400 text-sm font-medium px-4 py-3">当前库存</th>
+                <th class="text-center text-gray-500 dark:text-slate-400 text-sm font-medium px-4 py-3">安全库存</th>
+                <th class="text-center text-gray-500 dark:text-slate-400 text-sm font-medium px-4 py-3">状态</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-700/30">
+            <tbody class="divide-y divide-gray-100 dark:divide-slate-700/30">
               <tr 
                 v-for="item in lowStockItems" 
                 :key="item.id"
-                class="hover:bg-slate-700/20 transition-colors"
+                class="hover:bg-gray-50 dark:hover:bg-slate-700/20 transition-colors"
               >
                 <td class="px-4 py-3">
                   <span class="text-red-400 font-mono text-sm">{{ item.sku_code }}</span>
                 </td>
-                <td class="px-4 py-3 text-white">{{ item.name }}</td>
+                <td class="px-4 py-3 text-gray-900 dark:text-white">{{ item.name }}</td>
                 <td class="px-4 py-3 text-center">
                   <span class="text-red-400 font-bold">{{ item.current_stock }}</span>
                 </td>
-                <td class="px-4 py-3 text-center text-slate-400">{{ item.safe_stock }}</td>
+                <td class="px-4 py-3 text-center text-gray-500 dark:text-slate-400">{{ item.safe_stock }}</td>
                 <td class="px-4 py-3 text-center">
                   <span class="px-2 py-1 bg-red-500/20 text-red-400 text-xs font-medium rounded">
                     缺货
@@ -179,9 +253,9 @@
       <!-- 3. 趋势图表 + 4. 成本排行 -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <!-- 近30天发货趋势 -->
-        <div class="bg-slate-800/80 backdrop-blur-sm rounded-2xl border border-slate-700/50 p-4 md:p-5">
+        <div class="bg-white dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl border border-gray-200 dark:border-slate-700/50 p-4 md:p-5 shadow-sm dark:shadow-none">
           <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-bold text-white flex items-center gap-2">
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
               <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
               </svg>
@@ -194,9 +268,9 @@
         </div>
 
         <!-- 成本排行明细 -->
-        <div class="bg-slate-800/80 backdrop-blur-sm rounded-2xl border border-slate-700/50 overflow-hidden">
-          <div class="p-4 border-b border-slate-700/50 flex items-center justify-between">
-            <h3 class="text-lg font-bold text-white flex items-center gap-2">
+        <div class="bg-white dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl border border-gray-200 dark:border-slate-700/50 overflow-hidden shadow-sm dark:shadow-none">
+          <div class="p-4 border-b border-gray-200 dark:border-slate-700/50 flex items-center justify-between">
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
               <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
@@ -206,42 +280,58 @@
           
           <div class="overflow-x-auto max-h-[340px] overflow-y-auto">
             <table class="w-full">
-              <thead class="bg-slate-700/30 sticky top-0">
+              <thead class="bg-gray-50 dark:bg-slate-700/30 sticky top-0">
                 <tr>
-                  <th class="text-center text-slate-400 text-sm font-medium px-3 py-2 w-12">排名</th>
-                  <th class="text-left text-slate-400 text-sm font-medium px-3 py-2">产品名称</th>
-                  <th class="text-center text-slate-400 text-sm font-medium px-3 py-2">发货量</th>
-                  <th class="text-right text-slate-400 text-sm font-medium px-3 py-2">总成本</th>
+                  <th class="text-center text-gray-500 dark:text-slate-400 text-sm font-medium px-3 py-2 w-12">排名</th>
+                  <th class="text-left text-gray-500 dark:text-slate-400 text-sm font-medium px-3 py-2">产品名称</th>
+                  <th class="text-center text-gray-500 dark:text-slate-400 text-sm font-medium px-3 py-2">发货量</th>
+                  <th class="text-right text-gray-500 dark:text-slate-400 text-sm font-medium px-3 py-2">总成本</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-slate-700/30">
-                <tr 
-                  v-for="(item, index) in topProducts" 
+              <tbody class="divide-y divide-gray-100 dark:divide-slate-700/30">
+                <tr
+                  v-for="(item, index) in topProducts"
                   :key="item.id"
-                  class="hover:bg-slate-700/20 transition-colors"
+                  class="hover:bg-gray-50 dark:hover:bg-slate-700/20 transition-colors"
                 >
-                  <td class="px-3 py-3 text-center">
-                    <span 
+                  <!-- 排名 -->
+                  <td class="px-3 py-3 text-center whitespace-nowrap">
+                    <span
                       :class="[
                         'inline-flex items-center justify-center w-7 h-7 rounded-full text-sm font-bold',
                         index === 0 ? 'bg-amber-500 text-white' :
                         index === 1 ? 'bg-slate-400 text-white' :
                         index === 2 ? 'bg-amber-700 text-white' :
-                        'bg-slate-700 text-slate-400'
+                        'bg-gray-200 dark:bg-slate-700 text-gray-500 dark:text-slate-400'
                       ]"
-                    >
-                      {{ index + 1 }}
-                    </span>
+                    >{{ index + 1 }}</span>
                   </td>
-                  <td class="px-3 py-3">
-                    <div class="text-white font-medium">{{ item.name }}</div>
-                    <div class="text-slate-500 text-xs">{{ item.sku_code }}</div>
+                  <!-- 产品名称 + 大类 + 规格标签 -->
+                  <td class="px-3 py-2.5">
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                      <span class="text-gray-900 dark:text-white font-medium text-sm">{{ item.name }}</span>
+                      <span
+                        v-if="item.category"
+                        class="px-1.5 py-0.5 bg-indigo-500/15 text-indigo-500 dark:text-indigo-400 border border-indigo-500/20 rounded text-[10px] font-medium whitespace-nowrap"
+                      >{{ item.category }}</span>
+                    </div>
+                    <div class="text-gray-400 dark:text-slate-500 text-[10px] font-mono mt-0.5">{{ item.sku_code }}</div>
+                    <!-- attributes 规格标签 -->
+                    <div v-if="dashboardParseAttrs(item.attributes).length" class="flex flex-wrap gap-1 mt-1">
+                      <span
+                        v-for="(tag, ti) in dashboardParseAttrs(item.attributes)"
+                        :key="ti"
+                        class="inline-flex items-center px-1.5 py-0.5 bg-gray-100 dark:bg-slate-700/60 text-gray-500 dark:text-slate-400 border border-gray-200 dark:border-slate-600/50 rounded text-[9px] whitespace-nowrap"
+                      >{{ tag.key }}: {{ tag.val }}</span>
+                    </div>
                   </td>
-                  <td class="px-3 py-3 text-center">
+                  <!-- 发货量 -->
+                  <td class="px-3 py-3 text-center whitespace-nowrap">
                     <span class="text-blue-400 font-bold">{{ item.quantity }}</span>
-                    <span class="text-slate-500 text-sm">件</span>
+                    <span class="text-gray-400 dark:text-slate-500 text-sm"> 件</span>
                   </td>
-                  <td class="px-3 py-3 text-right">
+                  <!-- 总成本 -->
+                  <td class="px-3 py-3 text-right whitespace-nowrap">
                     <span class="text-purple-400 font-bold">¥{{ formatMoney(item.totalCost) }}</span>
                   </td>
                 </tr>
@@ -252,7 +342,7 @@
       </div>
 
       <!-- 底部时间 -->
-      <div class="text-center text-slate-500 text-sm pb-4">
+      <div class="text-center text-gray-400 dark:text-slate-500 text-sm pb-4">
         数据更新时间: {{ lastUpdateTime }}
       </div>
     </div>
@@ -262,7 +352,9 @@
 <script setup>
 import { ref, reactive, onMounted, nextTick } from 'vue'
 import { Chart, registerables } from 'chart.js'
-import { getStats, getTrendStats, getTopProducts, getLowStockProducts } from '@/api'
+import * as XLSX from 'xlsx'
+import { getDashboardStats, getStats, getTrendStats, getTopProducts, getLowStockProducts, exportLogs } from '@/api'
+import { toast } from '@/composables/useToast.js'
 
 // 注册 Chart.js
 Chart.register(...registerables)
@@ -284,11 +376,30 @@ const stats = reactive({
   monthCostTrend: 0
 })
 
+// 大屏统计数据
+const dashboardStats = reactive({
+  totalStock: 0,
+  totalAsset: 0,
+  monthIn: 0,
+  monthOut: 0
+})
+
 // 缺货预警列表
 const lowStockItems = ref([])
 
 // Top 10 产品排行
 const topProducts = ref([])
+
+// 解析 attributes JSON 为标签数组（排行榜展示用）
+function dashboardParseAttrs(raw) {
+  if (!raw) return []
+  let obj = raw
+  if (typeof obj === 'string') {
+    try { obj = JSON.parse(obj) } catch { return [] }
+  }
+  if (typeof obj !== 'object' || obj === null) return []
+  return Object.entries(obj).map(([key, val]) => ({ key, val: String(val) }))
+}
 
 // 近30天趋势数据
 const trendData = reactive({
@@ -299,7 +410,17 @@ const trendData = reactive({
 // ==================== 数据加载 ====================
 async function loadData() {
   try {
-    // 1. 核心统计
+    // 1. 大屏统计数据（总库存、总资产、本月入库出库）
+    const dashRes = await getDashboardStats()
+    if (dashRes.success) {
+      const d = dashRes.data
+      dashboardStats.totalStock = d.totalStock
+      dashboardStats.totalAsset = d.totalAsset
+      dashboardStats.monthIn = d.monthIn
+      dashboardStats.monthOut = d.monthOut
+    }
+
+    // 2. 核心统计（今日/本月发货）
     const statsRes = await getStats()
     if (statsRes.success) {
       const s = statsRes.data
@@ -312,19 +433,19 @@ async function loadData() {
       stats.monthCostTrend = s.monthCostTrend
     }
 
-    // 2. 缺货预警
+    // 3. 缺货预警
     const lowStockRes = await getLowStockProducts()
     if (lowStockRes.success) {
       lowStockItems.value = lowStockRes.data
     }
 
-    // 3. Top 10 产品
+    // 4. Top 10 产品
     const topRes = await getTopProducts()
     if (topRes.success) {
       topProducts.value = topRes.data
     }
 
-    // 4. 近30天趋势
+    // 5. 近30天趋势
     const trendRes = await getTrendStats()
     if (trendRes.success) {
       trendData.labels = trendRes.data.map(d => d.date)
@@ -420,75 +541,77 @@ function initTrendChart() {
 // ==================== Excel 导出功能 ====================
 async function exportToExcel() {
   isExporting.value = true
-  
+
   try {
-    // 模拟导出延迟
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    
+    // 获取出入库流水数据
+    const logsRes = await exportLogs({ pageSize: 10000 })
+    const logsData = logsRes.data || []
+
     // 创建工作簿
-    const workbook = {
-      sheets: [
-        {
-          name: '核心统计',
-          headers: ['指标', '数值', '趋势'],
-          rows: [
-            ['今日发货总量', `${stats.todayQuantity} 件`, `↑${stats.todayQuantityTrend}%`],
-            ['今日发货成本', `¥${formatMoney(stats.todayCost)}`, `↑${stats.todayCostTrend}%`],
-            ['本月发货总量', `${stats.monthQuantity} 件`, ''],
-            ['本月发货成本', `¥${formatMoney(stats.monthCost)}`, `${stats.monthCostTrend >= 0 ? '↑' : '↓'}${Math.abs(stats.monthCostTrend)}%`]
-          ]
-        },
-        {
-          name: '缺货预警',
-          headers: ['SKU条码', '产品名称', '当前库存', '安全库存', '状态'],
-          rows: lowStockItems.value.map(item => [
-            item.sku_code,
-            item.name,
-            item.current_stock,
-            item.safe_stock,
-            '缺货'
-          ])
-        },
-        {
-          name: '发货排行',
-          headers: ['排名', 'SKU条码', '产品名称', '发货量', '总成本'],
-          rows: topProducts.value.map((item, index) => [
-            index + 1,
-            item.sku_code,
-            item.name,
-            item.quantity,
-            `¥${formatMoney(item.totalCost)}`
-          ])
-        }
-      ]
-    }
-    
-    // 生成 CSV（兼容 Excel）
-    let csvContent = '\uFEFF' // BOM for UTF-8
-    
-    workbook.sheets.forEach((sheet, sheetIndex) => {
-      if (sheetIndex > 0) csvContent += '\n\n'
-      csvContent += sheet.name + '\n'
-      csvContent += sheet.headers.join('\t') + '\n'
-      sheet.rows.forEach(row => {
-        csvContent += row.join('\t') + '\n'
-      })
+    const wb = XLSX.utils.book_new()
+
+    // Sheet 1: 核心统计
+    const statsData = [
+      ['指标', '数值', '趋势'],
+      ['今日发货总量', `${stats.todayQuantity} 件`, `↑${stats.todayQuantityTrend}%`],
+      ['今日发货成本', `¥${formatMoney(stats.todayCost)}`, `↑${stats.todayCostTrend}%`],
+      ['本月发货总量', `${stats.monthQuantity} 件`, ''],
+      ['本月发货成本', `¥${formatMoney(stats.monthCost)}`, `${stats.monthCostTrend >= 0 ? '↑' : '↓'}${Math.abs(stats.monthCostTrend)}%`]
+    ]
+    const ws1 = XLSX.utils.aoa_to_sheet(statsData)
+    XLSX.utils.book_append_sheet(wb, ws1, '核心统计')
+
+    // Sheet 2: 缺货预警
+    const lowStockData = [
+      ['SKU条码', '产品名称', '当前库存', '安全库存', '状态']
+    ]
+    lowStockItems.value.forEach(item => {
+      lowStockData.push([
+        item.sku_code,
+        item.name,
+        item.current_stock,
+        item.safe_stock,
+        '缺货'
+      ])
     })
-    
+    const ws2 = XLSX.utils.aoa_to_sheet(lowStockData)
+    XLSX.utils.book_append_sheet(wb, ws2, '缺货预警')
+
+    // Sheet 3: 发货排行
+    const topData = [
+      ['排名', 'SKU条码', '产品名称', '发货量', '总成本']
+    ]
+    topProducts.value.forEach((item, index) => {
+      topData.push([
+        index + 1,
+        item.sku_code,
+        item.name,
+        item.quantity,
+        `¥${formatMoney(item.totalCost)}`
+      ])
+    })
+    const ws3 = XLSX.utils.aoa_to_sheet(topData)
+    XLSX.utils.book_append_sheet(wb, ws3, '发货排行')
+
+    // Sheet 4: 出入库流水
+    if (logsData.length > 0) {
+      const logsHeaders = Object.keys(logsData[0])
+      const logsTable = [logsHeaders]
+      logsData.forEach(item => {
+        logsTable.push(logsHeaders.map(h => item[h]))
+      })
+      const ws4 = XLSX.utils.aoa_to_sheet(logsTable)
+      XLSX.utils.book_append_sheet(wb, ws4, '出入库流水')
+    }
+
     // 下载文件
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-    const link = document.createElement('a')
-    const fileName = `库存数据报表_${new Date().toISOString().split('T')[0]}.csv`
-    
-    link.href = URL.createObjectURL(blob)
-    link.download = fileName
-    link.click()
-    URL.revokeObjectURL(link.href)
-    
-    alert('导出成功！')
+    const date = new Date().toISOString().split('T')[0]
+    XLSX.writeFile(wb, `库存数据报表_${date}.xlsx`)
+
+    toast.success('导出成功！文件已保存到本地')
   } catch (error) {
     console.error('导出失败:', error)
-    alert('导出失败，请重试')
+    toast.error('导出失败，请重试')
   } finally {
     isExporting.value = false
   }

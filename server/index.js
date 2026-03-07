@@ -57,22 +57,34 @@ const dbGet = (sql, params = []) => {
 function initDatabase() {
     return new Promise((resolve, reject) => {
         db.serialize(() => {
-            // 商品表
+            // 商品表（多属性版本）
             db.run(`
                 CREATE TABLE IF NOT EXISTS products (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    sku_code VARCHAR(50) UNIQUE NOT NULL,
+                    sku_code TEXT UNIQUE NOT NULL,
                     name VARCHAR(100) NOT NULL,
+                    logo_type TEXT,
+                    color_style TEXT,
+                    thread_size TEXT,
+                    light_status TEXT,
                     attributes TEXT,
                     cost_price REAL NOT NULL DEFAULT 0,
                     current_stock INTEGER NOT NULL DEFAULT 0,
                     safe_stock INTEGER NOT NULL DEFAULT 0,
+                    location_code VARCHAR(30),
                     image_url VARCHAR(255),
                     remark VARCHAR(500),
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             `)
+
+            // 尝试添加新字段（如果表已存在）
+            db.run(`ALTER TABLE products ADD COLUMN logo_type TEXT`, () => {})
+            db.run(`ALTER TABLE products ADD COLUMN color_style TEXT`, () => {})
+            db.run(`ALTER TABLE products ADD COLUMN thread_size TEXT`, () => {})
+            db.run(`ALTER TABLE products ADD COLUMN light_status TEXT`, () => {})
+            db.run(`ALTER TABLE products ADD COLUMN location_code VARCHAR(30)`, () => {})
 
             // 库位表
             db.run(`
@@ -133,23 +145,23 @@ function initDatabase() {
                 }
 
                 if (row.count === 0) {
-                    // 插入测试商品
+                    // 插入测试商品（多属性版本）
                     const products = [
-                        ['SKU-A001', '路虎旋钮-黑钻', '{"螺纹型号":"M12x1.5","颜色":"黑色"}', 85.00, 15, 5],
-                        ['SKU-A002', '路虎旋钮-银钻', '{"螺纹型号":"M14x1.5","颜色":"银色"}', 92.00, 12, 5],
-                        ['SKU-A003', '手动挡-水晶标', '{"LOGO":"BMW","材质":"水晶"}', 45.00, 28, 10],
-                        ['SKU-B001', '手动挡-改装', '{"LOGO":"个性化","材质":"水晶"}', 68.00, 18, 8],
-                        ['SKU-B002', '奔驰旋钮-原厂', '{"颜色":"黑色","型号":"原厂"}', 120.00, 4, 8],
-                        ['SKU-B003', '奔驰AMG旋钮', '{"LOGO":"AMG","颜色":"黑红"}', 185.00, 10, 5],
-                        ['SKU-C001', '保时捷旋钮', '{"型号":"718","颜色":"红色"}', 280.00, 1, 5],
-                        ['SKU-C002', '奥迪RS旋钮', '{"LOGO":"RS","颜色":"黑色"}', 95.00, 8, 5],
-                        ['SKU-D001', '通用档把套', '{"材质":"水晶","规格":"通用"}', 35.00, 32, 10],
-                        ['SKU-E001', '路虎旋钮-白钻', '{"螺纹型号":"M12x1.5","颜色":"白色"}', 88.00, 20, 5]
+                        ['路虎-黑钻-M12-发光', '路虎水晶档把', '路虎', '黑钻', 'M12x1.5', '发光', 85.00, 15, 5, 'A-01-01'],
+                        ['路虎-银钻-M14-发光', '路虎水晶档把', '路虎', '银钻', 'M14x1.5', '发光', 92.00, 12, 5, 'A-01-02'],
+                        ['宝马-水晶标-不发光', '宝马水晶档把', 'BMW', '水晶标', '专用', '不发光', 45.00, 28, 10, 'A-02-01'],
+                        ['奔驰-原厂-发光', '奔驰水晶档把', '奔驰', '原厂黑', '专用', '发光', 120.00, 8, 8, 'A-02-02'],
+                        ['奔驰-AMG-发光', '奔驰AMG档把', 'AMG', '黑红', '专用', '发光', 185.00, 10, 5, 'A-02-03'],
+                        ['保时捷-718-红-发光', '保时捷718档把', '保时捷', '红色', '专用', '发光', 280.00, 5, 5, 'B-01-01'],
+                        ['奥迪-RS-黑-发光', '奥迪RS档把', '奥迪RS', '黑色', '专用', '发光', 95.00, 8, 5, 'B-01-02'],
+                        ['雷克萨斯-发光', '雷克萨斯档把', '雷克萨斯', '黑色', '专用', '发光', 150.00, 6, 5, 'B-02-01'],
+                        ['通用-水晶套-不发光', '通用档把套', '通用', '水晶', '通用', '不发光', 35.00, 32, 10, 'C-01-01'],
+                        ['路虎-白钻-M12-不发光', '路虎水晶档把', '路虎', '白钻', 'M12x1.5', '不发光', 88.00, 20, 5, 'C-01-02']
                     ]
 
                     for (const p of products) {
                         await dbRun(
-                            "INSERT INTO products (sku_code, name, attributes, cost_price, current_stock, safe_stock) VALUES (?, ?, ?, ?, ?, ?)",
+                            "INSERT INTO products (sku_code, name, logo_type, color_style, thread_size, light_status, cost_price, current_stock, safe_stock, location_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                             p
                         )
                     }
@@ -220,6 +232,73 @@ function formatDateTime(date) {
 }
 
 // ==================== API 接口 ====================
+
+/**
+ * GET /api/dashboard/stats
+ * 获取大屏统计数据（总库存、总资产、本月入库出库、缺货预警）
+ */
+app.get('/api/dashboard/stats', async (req, res) => {
+    try {
+        const today = formatDate(new Date())
+        const firstDayOfMonth = formatDate(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
+
+        // 1. 总库存数量
+        const totalStockResult = await dbGet(`
+            SELECT COALESCE(SUM(current_stock), 0) as total
+            FROM products
+        `)
+
+        // 2. 总资产成本（库存 * 成本价）
+        const totalAssetResult = await dbGet(`
+            SELECT COALESCE(SUM(current_stock * cost_price), 0) as total
+            FROM products
+        `)
+
+        // 3. 本月入库总量
+        const monthInResult = await dbGet(`
+            SELECT COALESCE(SUM(quantity), 0) as total
+            FROM inventory_logs
+            WHERE type = 'IN' AND DATE(created_at) >= ?
+        `, [firstDayOfMonth])
+
+        // 4. 本月出库总量
+        const monthOutResult = await dbGet(`
+            SELECT COALESCE(SUM(quantity), 0) as total
+            FROM inventory_logs
+            WHERE type = 'OUT' AND DATE(created_at) >= ?
+        `, [firstDayOfMonth])
+
+        // 5. 缺货/预警商品列表（当前库存 <= 安全库存）
+        const lowStockItems = await dbAll(`
+            SELECT
+                id,
+                sku_code,
+                name,
+                current_stock,
+                safe_stock,
+                cost_price,
+                (safe_stock - current_stock) as shortage
+            FROM products
+            WHERE current_stock <= safe_stock
+            ORDER BY shortage DESC
+            LIMIT 20
+        `)
+
+        res.json({
+            success: true,
+            data: {
+                totalStock: totalStockResult?.total || 0,
+                totalAsset: parseFloat(totalAssetResult?.total) || 0,
+                monthIn: monthInResult?.total || 0,
+                monthOut: monthOutResult?.total || 0,
+                lowStockItems: lowStockItems || []
+            }
+        })
+    } catch (error) {
+        console.error('获取大屏统计数据失败:', error)
+        res.status(500).json({ success: false, message: '获取统计数据失败' })
+    }
+})
 
 /**
  * GET /api/stats
@@ -497,16 +576,29 @@ app.get('/api/products/sku/:skuCode', async (req, res) => {
  */
 app.post('/api/products', async (req, res) => {
     try {
-        const { sku_code, name, attributes, cost_price, safe_stock, image_url, remark } = req.body
+        const {
+            sku_code,
+            name,
+            logo_type,
+            color_style,
+            thread_size,
+            light_status,
+            attributes,
+            cost_price,
+            safe_stock,
+            location_code,
+            image_url,
+            remark
+        } = req.body
 
-        if (!sku_code || !name || !cost_price) {
+        if (!sku_code || !name) {
             return res.status(400).json({ success: false, message: '缺少必要参数' })
         }
 
         const result = await dbRun(
-            `INSERT INTO products (sku_code, name, attributes, cost_price, safe_stock, image_url, remark)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [sku_code, name, JSON.stringify(attributes), cost_price, safe_stock || 0, image_url, remark]
+            `INSERT INTO products (sku_code, name, logo_type, color_style, thread_size, light_status, attributes, cost_price, safe_stock, location_code, image_url, remark)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [sku_code, name, logo_type, color_style, thread_size, light_status, JSON.stringify(attributes), parseFloat(cost_price) || 0, safe_stock || 0, location_code, image_url, remark]
         )
 
         res.json({
@@ -930,12 +1022,24 @@ app.post('/api/locations', async (req, res) => {
  */
 app.put('/api/products/:id', async (req, res) => {
     try {
-        const { name, attributes, cost_price, safe_stock, image_url, remark } = req.body
+        const {
+            name,
+            logo_type,
+            color_style,
+            thread_size,
+            light_status,
+            attributes,
+            cost_price,
+            safe_stock,
+            location_code,
+            image_url,
+            remark
+        } = req.body
         const { id } = req.params
 
         const result = await dbRun(
-            `UPDATE products SET name = ?, attributes = ?, cost_price = ?, safe_stock = ?, image_url = ?, remark = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-            [name, JSON.stringify(attributes), cost_price, safe_stock, image_url, remark, id]
+            `UPDATE products SET name = ?, logo_type = ?, color_style = ?, thread_size = ?, light_status = ?, attributes = ?, cost_price = ?, safe_stock = ?, location_code = ?, image_url = ?, remark = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+            [name, logo_type, color_style, thread_size, light_status, JSON.stringify(attributes), cost_price, safe_stock, location_code, image_url, remark, id]
         )
 
         if (result.changes === 0) {
@@ -982,6 +1086,114 @@ app.delete('/api/products/:id', async (req, res) => {
  */
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() })
+})
+
+// ==================== 导出接口 ====================
+
+/**
+ * GET /api/export/inventory
+ * 导出库存数据 Excel
+ */
+app.get('/api/export/inventory', async (req, res) => {
+    try {
+        const rows = await dbAll(`
+            SELECT
+                p.sku_code as 'SKU条码',
+                p.name as '商品名称',
+                p.attributes as '属性',
+                p.cost_price as '成本价',
+                p.current_stock as '当前库存',
+                p.safe_stock as '安全库存',
+                p.image_url as '图片URL',
+                p.remark as '备注',
+                l.location_code as '库位',
+                p.created_at as '创建时间',
+                p.updated_at as '更新时间'
+            FROM products p
+            LEFT JOIN locations l ON p.id = l.product_id
+            ORDER BY p.id DESC
+        `)
+
+        // 处理 attributes 字段
+        const data = rows.map(row => ({
+            ...row,
+            '属性': row['属性'] ? (typeof row['属性'] === 'string' ? row['属性'] : JSON.stringify(row['属性'])) : ''
+        }))
+
+        res.json({
+            success: true,
+            data: data,
+            count: data.length
+        })
+    } catch (error) {
+        console.error('导出库存数据失败:', error)
+        res.status(500).json({ success: false, message: '导出库存数据失败' })
+    }
+})
+
+/**
+ * GET /api/export/logs
+ * 导出出入库流水 Excel
+ */
+app.get('/api/export/logs', async (req, res) => {
+    try {
+        const { startDate, endDate, type } = req.query
+
+        let sql = `
+            SELECT
+                il.id as '流水ID',
+                p.sku_code as 'SKU条码',
+                p.name as '商品名称',
+                l.location_code as '库位',
+                il.type as '类型',
+                il.quantity as '数量',
+                il.unit_cost as '单价',
+                il.total_cost as '总成本',
+                il.reference_no as '关联单号',
+                il.operator as '操作人',
+                il.remark as '备注',
+                il.created_at as '操作时间'
+            FROM inventory_logs il
+            LEFT JOIN products p ON il.product_id = p.id
+            LEFT JOIN locations l ON il.location_id = l.id
+            WHERE 1=1
+        `
+        const params = []
+
+        if (type) {
+            sql += ' AND il.type = ?'
+            params.push(type)
+        }
+
+        if (startDate) {
+            sql += ' AND il.created_at >= ?'
+            params.push(startDate)
+        }
+
+        if (endDate) {
+            sql += ' AND il.created_at <= ?'
+            params.push(endDate)
+        }
+
+        sql += ' ORDER BY il.created_at DESC'
+
+        const rows = await dbAll(sql, params)
+
+        // 转换类型为中文
+        const data = rows.map(row => ({
+            ...row,
+            '类型': row['类型'] === 'IN' ? '入库' : row['类型'] === 'OUT' ? '出库' : row['类型'] === 'ADJUST' ? '调整' : '调拨'
+        }))
+
+        res.json({
+            success: true,
+            data: data,
+            count: data.length
+        })
+    } catch (error) {
+        console.error('导出流水数据失败:', error)
+        res.status(500).json({ success: false, message: '导出流水数据失败' })
+    }
 })
 
 // ==================== 启动服务器 ====================

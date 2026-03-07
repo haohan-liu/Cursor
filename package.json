@@ -2,7 +2,6 @@
   "name": "gear-knob-inventory",
   "version": "1.0.0",
   "description": "汽车水晶档把库存管理系统",
-  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -26,10 +25,15 @@
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "html5-qrcode": "^2.3.8",
+    "jsbarcode": "^3.12.3",
+    "multer": "^2.1.1",
     "mysql2": "^3.6.5",
+    "print-js": "^1.6.0",
+    "qrcode": "^1.5.4",
     "sqlite": "^5.1.1",
     "sqlite3": "^5.1.7",
-    "vue": "^3.4.15"
+    "vue": "^3.4.15",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.3",

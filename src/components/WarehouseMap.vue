@@ -1,384 +1,570 @@
 <template>
-  <div class="space-y-8">
-    <!-- 货架 A -->
-    <div class="bg-slate-800/80 backdrop-blur-sm rounded-2xl p-4 md:p-6 shadow-xl border border-slate-700/50">
-      <div class="flex items-center gap-3 mb-4">
-        <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl flex items-center justify-center">
-          <span class="text-white font-bold text-lg">A</span>
-        </div>
+  <div class="min-h-screen p-4 md:p-6 space-y-6 transition-colors duration-300">
+
+    <!-- ===== 顶栏 ===== -->
+    <div class="bg-white/90 dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-4 md:p-5 shadow-sm dark:shadow-xl border border-gray-200 dark:border-slate-700/50">
+      <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 class="text-xl font-bold text-white">货架 A</h2>
-          <p class="text-slate-400 text-sm">A Shelf - 4层 × 5格</p>
+          <h1 class="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">库位地图</h1>
+          <p class="text-gray-500 dark:text-slate-400 text-sm">Warehouse Map · 实时库存可视化</p>
+        </div>
+        <div class="flex items-center gap-3 flex-wrap">
+          <div class="relative">
+            <input
+              v-model="searchKeyword"
+              @input="handleSearch"
+              type="text"
+              placeholder="输入 SKU 或商品名称..."
+              class="pl-9 pr-4 py-2 bg-gray-50 dark:bg-slate-900 border border-gray-300 dark:border-slate-700 rounded-xl text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none w-52"
+            />
+            <svg class="w-4 h-4 text-gray-400 dark:text-slate-500 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          <button
+            @click="addShelf"
+            class="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-medium text-sm transition-colors flex items-center gap-1.5 shadow-lg shadow-emerald-500/20"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            新增货架
+          </button>
         </div>
       </div>
-      
-      <!-- 货架网格 -->
-      <div class="grid grid-cols-5 gap-2 md:gap-3">
-        <!-- 层标签 -->
-        <div class="contents">
-          <div
-            v-for="row in 4"
-            :key="'label-' + row"
-            class="hidden md:flex items-center justify-center text-slate-500 text-sm font-medium"
-          >
-            {{ 5 - row }}层
-          </div>
+      <!-- 搜索结果 -->
+      <div v-if="searchResult" class="mt-3 p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center justify-between gap-3">
+        <div class="flex flex-wrap gap-x-3 gap-y-1 text-sm">
+          <span class="text-amber-400 font-medium">找到商品：</span>
+          <span class="text-gray-900 dark:text-white">{{ searchResult.name }}</span>
+          <span class="text-gray-400 dark:text-slate-400 font-mono text-xs self-center">{{ searchResult.sku_code }}</span>
+          <span class="text-gray-500 dark:text-slate-400">库位：<span class="text-blue-400 font-mono">{{ searchResult.location_code || '未分配' }}</span></span>
+          <span class="text-gray-500 dark:text-slate-400">库存：<span class="text-emerald-400 font-bold">{{ searchResult.current_stock }} 件</span></span>
         </div>
-        
-        <!-- 货位格子 -->
-        <div
-          v-for="row in 4"
-          :key="'row-' + row"
-          class="col-span-4 md:col-span-4 grid grid-cols-5 gap-2 md:gap-3"
-        >
-          <div
-            v-for="col in 5"
-            :key="`A-${row}-${col}`"
-            class="aspect-square relative"
-          >
-            <!-- 货位格子 -->
-            <div
-              :ref="el => setLocationRef(`A-${String(row).padStart(2, '0')}-${String(col).padStart(2, '0')}`, el)"
-              @mouseenter="handleHover(`A-${String(row).padStart(2, '0')}-${String(col).padStart(2, '0')}`, $event)"
-              @mouseleave="hideTooltip"
-              :class="getCellClass(`A-${String(row).padStart(2, '0')}-${String(col).padStart(2, '0')}`)"
-              class="w-full h-full rounded-lg cursor-pointer transition-all duration-300 flex items-center justify-center"
-            >
-              <!-- 库位编码 -->
-              <span class="text-xs md:text-sm font-mono font-medium">
-                {{ `A${row}${col}` }}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <!-- 层标签（移动端横向） -->
-      <div class="flex md:hidden justify-around mt-3 pt-3 border-t border-slate-700/50">
-        <span v-for="row in 4" :key="row" class="text-xs text-slate-500">{{ 5 - row }}层</span>
+        <button @click="clearSearch" class="text-gray-400 hover:text-gray-700 dark:hover:text-white flex-shrink-0">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
       </div>
     </div>
 
-    <!-- 货架 B -->
-    <div class="bg-slate-800/80 backdrop-blur-sm rounded-2xl p-4 md:p-6 shadow-xl border border-slate-700/50">
-      <div class="flex items-center gap-3 mb-4">
-        <div class="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center">
-          <span class="text-white font-bold text-lg">B</span>
-        </div>
-        <div>
-          <h2 class="text-xl font-bold text-white">货架 B</h2>
-          <p class="text-slate-400 text-sm">B Shelf - 4层 × 5格</p>
-        </div>
-      </div>
-      
-      <!-- 货架网格 -->
-      <div class="grid grid-cols-5 gap-2 md:gap-3">
-        <!-- 层标签 -->
-        <div class="contents">
-          <div
-            v-for="row in 4"
-            :key="'label-' + row"
-            class="hidden md:flex items-center justify-center text-slate-500 text-sm font-medium"
-          >
-            {{ 5 - row }}层
+    <!-- ===== 空态 ===== -->
+    <div v-if="shelves.length === 0" class="bg-white/50 dark:bg-slate-800/50 rounded-2xl p-12 text-center border border-dashed border-gray-300 dark:border-slate-700">
+      <svg class="w-16 h-16 mx-auto text-gray-300 dark:text-slate-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+      </svg>
+      <p class="text-gray-500 dark:text-slate-400 text-lg font-medium">还没有货架</p>
+      <p class="text-gray-400 dark:text-slate-600 text-sm mt-1">点击右上角「新增货架」开始配置</p>
+    </div>
+
+    <!-- ===== 货架列表 ===== -->
+    <div
+      v-for="(shelf, idx) in shelves"
+      :key="shelf.id"
+      class="bg-white/90 dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-4 md:p-5 shadow-sm dark:shadow-xl border border-gray-200 dark:border-slate-700/50"
+    >
+      <!-- 货架标题：左侧徽章+名称，右侧图标操作组 -->
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-3">
+          <div :class="shelfBadgeClass(idx)" class="w-9 h-9 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
+            <span class="text-white font-bold text-sm">{{ shelf.id }}</span>
+          </div>
+          <div>
+            <h2 class="text-base font-bold text-gray-900 dark:text-white leading-tight">货架 {{ shelf.id }}</h2>
+            <p class="text-gray-400 dark:text-slate-500 text-xs">{{ shelf.rows.length }} 层，每层独立列数</p>
           </div>
         </div>
-        
-        <!-- 货位格子 -->
-        <div
-          v-for="row in 4"
-          :key="'row-' + row"
-          class="col-span-4 md:col-span-4 grid grid-cols-5 gap-2 md:gap-3"
-        >
-          <div
-            v-for="col in 5"
-            :key="`B-${row}-${col}`"
-            class="aspect-square relative"
+
+        <!-- 紧凑图标操作按钮组 -->
+        <div class="flex items-center gap-1.5">
+          <!-- 增加层 -->
+          <button
+            @click="addRowToShelf(shelf)"
+            title="增加一层（从底部添加）"
+            class="w-8 h-8 rounded-lg border flex items-center justify-center transition-all duration-150 active:scale-90
+                   bg-emerald-500/10 border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/25 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-400 dark:hover:bg-emerald-500/25"
           >
-            <!-- 货位格子 -->
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
+            </svg>
+          </button>
+          <!-- 减少层（移除顶层） -->
+          <button
+            @click="removeTopRow(shelf)"
+            :disabled="shelf.rows.length <= 1"
+            title="减少一层（移除顶层）"
+            class="w-8 h-8 rounded-lg border flex items-center justify-center transition-all duration-150 active:scale-90
+                   bg-amber-500/10 border-amber-500/30 text-amber-500 hover:bg-amber-500/25 dark:text-amber-400
+                   disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M20 12H4" />
+            </svg>
+          </button>
+          <!-- 分隔线 -->
+          <div class="w-px h-5 bg-gray-300 dark:bg-slate-600 mx-0.5"></div>
+          <!-- 删除货架 -->
+          <button
+            @click="deleteShelf(shelf)"
+            title="删除此货架"
+            class="w-8 h-8 rounded-lg border flex items-center justify-center transition-all duration-150 active:scale-90
+                   bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/25"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- 物理货架视图：高层在上，低层在下；每行 flex 等宽填满 -->
+      <div class="w-full">
+        <div class="flex flex-col gap-1.5">
+
+          <div
+            v-for="rowDesc in descRowsForShelf(shelf)"
+            :key="rowDesc.rowIndex"
+            class="flex items-stretch gap-1"
+          >
+            <!-- 层标签 -->
+            <div class="w-9 flex-shrink-0 flex items-center justify-end text-[10px] text-gray-400 dark:text-slate-500 font-medium pr-1 leading-none self-center">
+              {{ rowDesc.rowNum }}层
+            </div>
+
+            <!-- 货位格子：flex-1 平分行宽 -->
             <div
-              :ref="el => setLocationRef(`B-${String(row).padStart(2, '0')}-${String(col).padStart(2, '0')}`, el)"
-              @mouseenter="handleHover(`B-${String(row).padStart(2, '0')}-${String(col).padStart(2, '0')}`, $event)"
+              v-for="col in rowDesc.cols"
+              :key="col"
+              :ref="el => setLocationRef(cellCode(shelf.id, rowDesc.rowNum, col), el)"
+              @mouseenter="handleHover(cellCode(shelf.id, rowDesc.rowNum, col), $event)"
               @mouseleave="hideTooltip"
-              :class="getCellClass(`B-${String(row).padStart(2, '0')}-${String(col).padStart(2, '0')}`)"
-              class="w-full h-full rounded-lg cursor-pointer transition-all duration-300 flex items-center justify-center"
+              @click="handleCellClick(cellCode(shelf.id, rowDesc.rowNum, col))"
+              :class="getCellClass(cellCode(shelf.id, rowDesc.rowNum, col))"
+              class="flex-1 min-w-0 h-14 rounded-lg cursor-pointer transition-all duration-200 flex flex-col items-center justify-center overflow-hidden select-none border"
             >
-              <!-- 库位编码 -->
-              <span class="text-xs md:text-sm font-mono font-medium">
-                {{ `B${row}${col}` }}
+              <span class="text-[9px] font-mono font-semibold leading-tight truncate px-0.5">
+                {{ shelf.id }}-{{ String(rowDesc.rowNum).padStart(2,'0') }}
+              </span>
+              <span class="text-[9px] font-mono leading-tight opacity-60">
+                -{{ String(col).padStart(2,'0') }}
+              </span>
+              <span v-if="hasStock(cellCode(shelf.id, rowDesc.rowNum, col))" class="text-[9px] mt-0.5 font-bold leading-tight text-blue-400">
+                ×{{ getLocationData(cellCode(shelf.id, rowDesc.rowNum, col))?.stock }}
               </span>
             </div>
+
+            <!-- 行末 + 按钮（增加此行一列） -->
+            <div
+              @click="addColToRow(shelf, rowDesc.rowIndex)"
+              title="给这一层增加一个格子"
+              class="w-8 flex-shrink-0 h-14 rounded-lg cursor-pointer border flex flex-col items-center justify-center transition-all duration-200 active:scale-90 select-none
+                     bg-emerald-50 dark:bg-emerald-500/10 border-emerald-300 dark:border-emerald-500/30 text-emerald-500 dark:text-emerald-400
+                     hover:bg-emerald-100 dark:hover:bg-emerald-500/20 hover:border-emerald-400 dark:hover:border-emerald-400"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
+              </svg>
+            </div>
+
+            <!-- 行末 - 按钮（减少此行一列） -->
+            <div
+              v-if="rowDesc.cols > 1"
+              @click="removeColFromRow(shelf, rowDesc.rowIndex)"
+              title="移除这一层最后一个格子"
+              class="w-8 flex-shrink-0 h-14 rounded-lg cursor-pointer border flex flex-col items-center justify-center transition-all duration-200 active:scale-90 select-none
+                     bg-red-50 dark:bg-red-500/10 border-red-300 dark:border-red-500/30 text-red-400 dark:text-red-400
+                     hover:bg-red-100 dark:hover:bg-red-500/20 hover:border-red-400"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M20 12H4" />
+              </svg>
+            </div>
           </div>
+
         </div>
-      </div>
-      
-      <!-- 层标签（移动端横向） -->
-      <div class="flex md:hidden justify-around mt-3 pt-3 border-t border-slate-700/50">
-        <span v-for="row in 4" :key="row" class="text-xs text-slate-500">{{ 5 - row }}层</span>
       </div>
     </div>
 
-    <!-- 悬浮提示 Tooltip -->
+    <!-- ===== Tooltip ===== -->
     <Teleport to="body">
       <div
         v-if="tooltip.visible"
         :style="tooltipStyle"
-        class="fixed z-50 bg-slate-900/95 backdrop-blur-sm border border-slate-600 rounded-xl p-4 shadow-2xl pointer-events-none transform transition-all duration-150"
-        :class="tooltip.visible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'"
+        class="fixed z-50 bg-slate-900/95 backdrop-blur-sm border border-slate-600 rounded-xl p-4 shadow-2xl pointer-events-none"
       >
         <div class="space-y-2 min-w-[180px]">
           <div class="flex items-center gap-2 pb-2 border-b border-slate-700">
-            <span class="px-2 py-0.5 bg-amber-500/20 text-amber-400 text-xs font-medium rounded">
+            <span class="px-2 py-0.5 bg-amber-500/20 text-amber-400 text-xs font-medium rounded font-mono">
               {{ tooltip.locationCode }}
             </span>
           </div>
-          
           <div v-if="tooltip.productName">
-            <div class="text-white font-medium">{{ tooltip.productName }}</div>
-            <div v-if="tooltip.attributes" class="text-slate-400 text-sm mt-1">
-              {{ tooltip.attributes }}
-            </div>
+            <div class="text-white font-medium text-sm">{{ tooltip.productName }}</div>
+            <div class="text-slate-400 text-xs mt-0.5">{{ tooltip.skuCode }}</div>
+            <div v-if="tooltip.attributes" class="text-slate-400 text-xs mt-0.5">{{ tooltip.attributes }}</div>
             <div class="flex items-center justify-between mt-2 pt-2 border-t border-slate-700">
-              <span class="text-slate-400 text-sm">库存</span>
+              <span class="text-slate-400 text-xs">库存</span>
               <span class="text-amber-400 font-bold">{{ tooltip.stock }} 件</span>
             </div>
           </div>
-          
-          <div v-else class="text-slate-500 text-sm">
-            空货位
-          </div>
+          <div v-else class="text-slate-500 text-sm">空货位</div>
         </div>
-        
-        <!-- 箭头 -->
         <div class="absolute w-3 h-3 bg-slate-900 border-l border-b border-slate-600 transform rotate-45 -left-1.5 top-1/2 -translate-y-1/2"></div>
       </div>
     </Teleport>
 
-    <!-- 图例说明 -->
-    <div class="bg-slate-800/50 rounded-xl p-4 border border-slate-700/30">
-      <div class="flex flex-wrap items-center justify-center gap-6 text-sm">
+    <!-- ===== 图例 ===== -->
+    <div class="bg-white/50 dark:bg-slate-800/50 rounded-xl p-3 border border-gray-200 dark:border-slate-700/30">
+      <div class="flex flex-wrap items-center justify-center gap-6 text-xs">
         <div class="flex items-center gap-2">
-          <div class="w-6 h-6 bg-slate-700 rounded"></div>
-          <span class="text-slate-400">空货位</span>
+          <div class="w-5 h-5 bg-gray-100 dark:bg-slate-700/80 border border-gray-300 dark:border-slate-600 rounded"></div>
+          <span class="text-gray-500 dark:text-slate-400">空货位</span>
         </div>
         <div class="flex items-center gap-2">
-          <div class="w-6 h-6 bg-blue-500/30 border border-blue-500/50 rounded"></div>
-          <span class="text-slate-400">有货</span>
+          <div class="w-5 h-5 bg-blue-500/25 border border-blue-400/50 rounded"></div>
+          <span class="text-gray-500 dark:text-slate-400">有货</span>
         </div>
         <div class="flex items-center gap-2">
-          <div class="w-6 h-6 bg-red-500 border-2 border-red-400 rounded animate-pulse"></div>
-          <span class="text-slate-400">目标货位</span>
+          <div class="w-5 h-5 bg-red-500 border-2 border-red-400 rounded animate-pulse"></div>
+          <span class="text-gray-500 dark:text-slate-400">搜索目标</span>
+        </div>
+        <div class="h-4 w-px bg-gray-300 dark:bg-slate-600"></div>
+        <div class="flex items-center gap-1.5 text-gray-400 dark:text-slate-500">
+          <svg class="w-3.5 h-3.5 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <circle cx="12" cy="12" r="4" stroke-width="2.5"/>
+            <path stroke-width="2" d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+          </svg>
+          更新时间：{{ lastUpdateTime || '获取中...' }}
         </div>
       </div>
     </div>
+
+    <!-- ===== 红色警告弹窗 ===== -->
+    <Teleport to="body">
+      <transition name="fade">
+        <div
+          v-if="warningDialog.visible"
+          class="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center backdrop-blur-sm"
+          @click.self="warningDialog.visible = false"
+        >
+          <div class="bg-white dark:bg-slate-800 border border-red-500/50 rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4">
+            <div class="flex items-start gap-4 mb-4">
+              <div class="w-10 h-10 bg-red-500/20 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
+                <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                </svg>
+              </div>
+              <div>
+                <h3 class="text-red-400 font-bold text-base mb-1">操作失败</h3>
+                <p class="text-gray-600 dark:text-slate-300 text-sm leading-relaxed">{{ warningDialog.message }}</p>
+                <div v-if="warningDialog.conflictCodes.length" class="mt-2 flex flex-wrap gap-1.5">
+                  <span
+                    v-for="code in warningDialog.conflictCodes"
+                    :key="code"
+                    class="px-2 py-0.5 bg-red-500/20 text-red-400 border border-red-500/30 rounded font-mono text-xs"
+                  >{{ code }}</span>
+                </div>
+              </div>
+            </div>
+            <button
+              @click="warningDialog.visible = false"
+              class="w-full py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold transition-colors text-sm"
+            >
+              我知道了
+            </button>
+          </div>
+        </div>
+      </transition>
+    </Teleport>
+
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch, onMounted, nextTick } from 'vue'
-import { getLocations } from '@/api'
+import { ref, reactive, computed, onMounted, nextTick } from 'vue'
+import { getLocations, getProductList } from '@/api'
 
-// ==================== Props ====================
-const props = defineProps({
-  targetLocationCode: {
-    type: String,
-    default: ''
+// ==================== 货架数据结构 ====================
+// rows 是数组，rows[i] = { cols: N }，每层可独立调整列数
+// rows[0] = 第1层（物理最底层），rows[n-1] = 最顶层
+const shelves = ref([
+  { id: 'A', rows: [{ cols: 5 }, { cols: 5 }, { cols: 5 }, { cols: 5 }] },
+  { id: 'B', rows: [{ cols: 5 }, { cols: 5 }, { cols: 5 }, { cols: 5 }] }
+])
+
+const SHELF_COLORS = [
+  'bg-gradient-to-br from-blue-500 to-cyan-600',
+  'bg-gradient-to-br from-purple-500 to-pink-600',
+  'bg-gradient-to-br from-amber-500 to-orange-600',
+  'bg-gradient-to-br from-emerald-500 to-teal-600',
+  'bg-gradient-to-br from-rose-500 to-red-600',
+  'bg-gradient-to-br from-indigo-500 to-violet-600',
+]
+function shelfBadgeClass(idx) {
+  return SHELF_COLORS[idx % SHELF_COLORS.length]
+}
+
+function nextShelfId() {
+  const used = new Set(shelves.value.map(s => s.id))
+  for (let i = 0; i < 26; i++) {
+    const letter = String.fromCharCode(65 + i)
+    if (!used.has(letter)) return letter
   }
-})
+  return `S${shelves.value.length + 1}`
+}
 
-// ==================== 库位数据（从API加载）================
-const locationData = ref({})
+// 从高层到低层（视觉从上到下）返回行描述符数组
+function descRowsForShelf(shelf) {
+  return shelf.rows
+    .map((row, i) => ({ rowNum: i + 1, cols: row.cols, rowIndex: i }))
+    .reverse()
+}
 
-async function loadLocations() {
+function cellCode(shelfId, rowNum, col) {
+  return `${shelfId}-${String(rowNum).padStart(2, '0')}-${String(col).padStart(2, '0')}`
+}
+
+// ==================== 库位和商品数据 ====================
+const locationData        = ref({})
+const productList         = ref([])
+const searchKeyword       = ref('')
+const searchResult        = ref(null)
+const highlightedLocation = ref('')
+const lastUpdateTime      = ref('')
+
+function formatNow() {
+  const d = new Date()
+  const pad = n => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+}
+
+async function loadData() {
   try {
-    const res = await getLocations()
-    if (res.success) {
-      // 转换为以 location_code 为 key 的对象
+    const [locationsRes, productsRes] = await Promise.all([
+      getLocations(),
+      getProductList({ pageSize: 1000 })
+    ])
+    if (productsRes.success) productList.value = productsRes.data || []
+
+    if (locationsRes.success) {
       const data = {}
-      res.data.forEach(loc => {
-        if (loc.product_name) {
-          data[loc.location_code] = {
-            productName: loc.product_name,
-            attributes: loc.product_attributes ? JSON.parse(loc.product_attributes) : {},
-            stock: loc.stock
+      locationsRes.data.forEach(loc => {
+        if (loc.product_id && loc.location_code) {
+          const product = productList.value.find(p => p.id === loc.product_id)
+          if (product) {
+            data[loc.location_code] = {
+              productId:   product.id,
+              productName: product.name,
+              skuCode:     product.sku_code,
+              attributes:  product.attributes
+                ? (typeof product.attributes === 'string' ? product.attributes : JSON.stringify(product.attributes))
+                : '',
+              stock: loc.stock ?? product.current_stock ?? 0
+            }
           }
         }
       })
       locationData.value = data
     }
   } catch (error) {
-    console.error('加载库位数据失败:', error)
+    console.error('加载数据失败:', error)
+  } finally {
+    lastUpdateTime.value = formatNow()
   }
 }
 
-// ==================== 模拟数据（API加载失败时的备用）================
-const mockInventoryData = {
-  'A-01-01': { productName: '路虎旋钮-黑钻', attributes: '螺纹:M12x1.5', stock: 15 },
-  'A-01-03': { productName: '手动挡-水晶标', attributes: 'LOGO:BMW', stock: 28 },
-  'A-02-02': { productName: '路虎旋钮-银钻', attributes: '螺纹:M14x1.5', stock: 12 },
-  'A-03-04': { productName: '奔驰旋钮-原厂', attributes: '颜色:黑', stock: 6 },
-  'A-04-01': { productName: '手动挡-通用', attributes: '螺纹:M10x1.25', stock: 45 },
-  'B-01-05': { productName: '奥迪RS旋钮', attributes: 'LOGO:RS', stock: 8 },
-  'B-02-01': { productName: '路虎旋钮-白钻', attributes: '螺纹:M12x1.5', stock: 20 },
-  'B-02-03': { productName: '手动挡-改装', attributes: 'LOGO:个性化', stock: 18 },
-  'B-03-01': { productName: '保时捷旋钮', attributes: '型号:718', stock: 5 },
-  'B-03-04': { productName: '奔驰AMG旋钮', attributes: 'LOGO:AMG', stock: 10 },
-  'B-04-02': { productName: '通用档把套', attributes: '材质:水晶', stock: 32 }
+// ==================== 警告弹窗 ====================
+const warningDialog = reactive({ visible: false, message: '', conflictCodes: [] })
+
+function showWarning(message, conflictCodes = []) {
+  warningDialog.message       = message
+  warningDialog.conflictCodes = conflictCodes
+  warningDialog.visible       = true
 }
 
-// ==================== 响应式状态 ====================
-const locationRefs = reactive({})
-const tooltip = reactive({
-  visible: false,
-  locationCode: '',
-  productName: '',
-  attributes: '',
-  stock: 0,
-  x: 0,
-  y: 0
-})
+// ==================== 货架操作 ====================
+
+function addShelf() {
+  const id = nextShelfId()
+  shelves.value.push({ id, rows: [{ cols: 5 }, { cols: 5 }, { cols: 5 }, { cols: 5 }] })
+}
+
+function deleteShelf(shelf) {
+  const occupied = getOccupiedInShelf(shelf)
+  if (occupied.length > 0) {
+    showWarning(`货架 ${shelf.id} 仍有商品库存，请先清空所有库位或调拨后再删除。`, occupied)
+    return
+  }
+  shelves.value = shelves.value.filter(s => s.id !== shelf.id)
+}
+
+/** 增加一层：在底部追加，cols 默认与底层相同 */
+function addRowToShelf(shelf) {
+  const defaultCols = shelf.rows.length > 0 ? shelf.rows[0].cols : 5
+  shelf.rows.push({ cols: defaultCols })
+}
+
+/** 减少顶层（rows 数组最后一项 = 物理最顶层） */
+function removeTopRow(shelf) {
+  if (shelf.rows.length <= 1) return
+  const topRowIndex = shelf.rows.length - 1
+  const occupied = getOccupiedInRow(shelf, topRowIndex)
+  if (occupied.length > 0) {
+    showWarning(`第 ${topRowIndex + 1} 层仍有商品库存，请先清空该层库位后再减少层数。`, occupied)
+    return
+  }
+  shelf.rows.pop()
+}
+
+/** 给某行增加一列 */
+function addColToRow(shelf, rowIndex) {
+  shelf.rows[rowIndex].cols++
+}
+
+/** 给某行减少一列（检查最后一格是否有货） */
+function removeColFromRow(shelf, rowIndex) {
+  const row = shelf.rows[rowIndex]
+  if (row.cols <= 1) return
+  const rowNum   = rowIndex + 1
+  const lastCol  = row.cols
+  const code     = cellCode(shelf.id, rowNum, lastCol)
+  if (hasStock(code)) {
+    showWarning(`库位 ${code} 仍有商品库存，请先清空后再缩减格子。`, [code])
+    return
+  }
+  row.cols--
+}
+
+// ==================== 安全检查辅助 ====================
+function getOccupiedInRow(shelf, rowIndex) {
+  const rowNum = rowIndex + 1
+  const cols   = shelf.rows[rowIndex].cols
+  const codes  = []
+  for (let col = 1; col <= cols; col++) {
+    const code = cellCode(shelf.id, rowNum, col)
+    if (hasStock(code)) codes.push(code)
+  }
+  return codes
+}
+
+function getOccupiedInShelf(shelf) {
+  const codes = []
+  for (let i = 0; i < shelf.rows.length; i++) {
+    const rowNum = i + 1
+    for (let col = 1; col <= shelf.rows[i].cols; col++) {
+      const code = cellCode(shelf.id, rowNum, col)
+      if (hasStock(code)) codes.push(code)
+    }
+  }
+  return codes
+}
+
+// ==================== 搜索 ====================
+function handleSearch() {
+  const kw = searchKeyword.value.trim().toLowerCase()
+  if (!kw) { clearSearch(); return }
+
+  const found = productList.value.find(p =>
+    p.sku_code?.toLowerCase().includes(kw) ||
+    p.name?.toLowerCase().includes(kw)
+  )
+
+  if (found) {
+    searchResult.value = found
+    const entry = Object.entries(locationData.value).find(([, d]) => d.productId === found.id)
+    if (entry) {
+      highlightedLocation.value = entry[0]
+      nextTick(() => {
+        const el = locationRefs[highlightedLocation.value]
+        el?.scrollIntoView?.({ behavior: 'smooth', block: 'center', inline: 'center' })
+      })
+    } else {
+      highlightedLocation.value = ''
+    }
+  } else {
+    searchResult.value = null
+    highlightedLocation.value = ''
+  }
+}
+
+function clearSearch() {
+  searchKeyword.value       = ''
+  searchResult.value        = null
+  highlightedLocation.value = ''
+}
+
+function handleCellClick(code) {
+  if (getLocationData(code)) console.log('库位:', code, getLocationData(code))
+}
 
 // ==================== 工具函数 ====================
+const locationRefs = reactive({})
+
 function setLocationRef(code, el) {
-  if (el) {
-    locationRefs[code] = el
-  }
+  if (el) locationRefs[code] = el
 }
 
-function getLocationData(code) {
-  // 优先使用 API 加载的数据，其次使用模拟数据
-  return locationData.value[code] || mockInventoryData[code] || null
+function getLocationData(code) { return locationData.value[code] || null }
+function isOccupied(code)      { return !!locationData.value[code] }
+function hasStock(code) {
+  const d = locationData.value[code]
+  return !!(d && (d.stock || 0) > 0)
 }
 
-function isTargetLocation(code) {
-  return props.targetLocationCode && code === props.targetLocationCode
-}
-
-function isOccupied(code) {
-  return !!(locationData.value[code] || mockInventoryData[code])
-}
-
-// ==================== 样式计算 ====================
+// ==================== 格子样式 ====================
 function getCellClass(code) {
-  const baseClass = 'border '
-  
-  if (isTargetLocation(code)) {
-    // 目标货位 - 红色高亮闪烁
-    return baseClass + 'bg-red-500 border-red-400 shadow-lg shadow-red-500/50 animate-pulse text-white'
+  if (highlightedLocation.value && code === highlightedLocation.value) {
+    return 'bg-red-500 border-red-400 shadow-lg shadow-red-500/40 animate-pulse text-white'
   }
-  
+  if (hasStock(code)) {
+    return 'bg-blue-500/20 dark:bg-blue-500/25 border-blue-400 dark:border-blue-500/50 text-blue-600 dark:text-blue-300 hover:bg-blue-500/35 hover:scale-105'
+  }
   if (isOccupied(code)) {
-    // 有货 - 蓝色
-    return baseClass + 'bg-blue-500/30 border-blue-500/50 text-blue-300 hover:bg-blue-500/50 hover:border-blue-400'
+    return 'bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/30 text-blue-400 hover:bg-blue-100 hover:scale-105'
   }
-  
-  // 空货位 - 灰色
-  return baseClass + 'bg-slate-700/50 border-slate-600 text-slate-500 hover:bg-slate-700 hover:border-slate-500'
+  return 'bg-gray-100 dark:bg-slate-700/50 border-gray-200 dark:border-slate-600 text-gray-400 dark:text-slate-500 hover:bg-gray-200 dark:hover:bg-slate-700 hover:scale-105'
 }
 
-// ==================== Tooltip 处理 ====================
+// ==================== Tooltip ====================
+const tooltip = reactive({
+  visible: false, locationCode: '',
+  productName: '', skuCode: '', attributes: '', stock: 0,
+  x: 0, y: 0
+})
+
 function handleHover(code, event) {
   const data = getLocationData(code)
-  
   tooltip.locationCode = code
-  tooltip.productName = data?.productName || ''
-  tooltip.attributes = data?.attributes || ''
-  tooltip.stock = data?.stock || 0
-  
-  // 计算 tooltip 位置
+  tooltip.productName  = data?.productName || ''
+  tooltip.skuCode      = data?.skuCode || ''
+  tooltip.attributes   = data?.attributes || ''
+  tooltip.stock        = data?.stock || 0
+
   const rect = event.target.getBoundingClientRect()
-  const tooltipWidth = 220
-  const tooltipHeight = 150
-  
-  let x = rect.right + 15
-  let y = rect.top + rect.height / 2 - tooltipHeight / 2
-  
-  // 边界检测
-  if (x + tooltipWidth > window.innerWidth) {
-    x = rect.left - tooltipWidth - 15
-  }
-  
-  if (y < 10) {
-    y = 10
-  } else if (y + tooltipHeight > window.innerHeight) {
-    y = window.innerHeight - tooltipHeight - 10
-  }
-  
-  tooltip.x = x
-  tooltip.y = y
-  tooltip.visible = true
+  const TW = 220, TH = 160
+  let x = rect.right + 12
+  let y = rect.top + rect.height / 2 - TH / 2
+  if (x + TW > window.innerWidth)       x = rect.left - TW - 12
+  if (y < 8)                             y = 8
+  else if (y + TH > window.innerHeight)  y = window.innerHeight - TH - 8
+
+  tooltip.x = x; tooltip.y = y; tooltip.visible = true
 }
 
-function hideTooltip() {
-  tooltip.visible = false
-}
+function hideTooltip() { tooltip.visible = false }
 
-const tooltipStyle = computed(() => ({
-  left: `${tooltip.x}px`,
-  top: `${tooltip.y}px`
-}))
-
-// ==================== Watch 目标库位变化 ====================
-watch(() => props.targetLocationCode, (newCode) => {
-  if (newCode) {
-    // 滚动到目标货位（带动画）
-    nextTick(() => {
-      const targetEl = locationRefs[newCode]
-      if (targetEl && targetEl.scrollIntoView) {
-        targetEl.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center',
-          inline: 'center'
-        })
-      }
-    })
-  }
-})
+const tooltipStyle = computed(() => ({ left: `${tooltip.x}px`, top: `${tooltip.y}px` }))
 
 // ==================== 生命周期 ====================
-onMounted(async () => {
-  // 加载库位数据
-  await loadLocations()
-  
-  // 初始聚焦到目标货位
-  if (props.targetLocationCode) {
-    nextTick(() => {
-      const targetEl = locationRefs[props.targetLocationCode]
-      if (targetEl && targetEl.scrollIntoView) {
-        setTimeout(() => {
-          targetEl.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center',
-            inline: 'center'
-          })
-        }, 300)
-      }
-    })
-  }
-})
+onMounted(() => loadData())
 </script>
 
 <style scoped>
-/* 货位格子 hover 效果增强 */
-div[class*="bg-blue-500"]:hover {
-  transform: scale(1.05);
-}
+.fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
+.fade-enter-from, .fade-leave-to       { opacity: 0; }
 
-div[class*="bg-slate-700"]:hover {
-  transform: scale(1.05);
-}
-
-/* 目标格子动画 */
-@keyframes highlight-pulse {
-  0%, 100% {
-    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
-  }
-  50% {
-    box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
-  }
-}
-
-.animate-highlight {
-  animation: highlight-pulse 1.5s ease-in-out infinite;
-}
+::-webkit-scrollbar { height: 4px; width: 4px; }
+::-webkit-scrollbar-track  { background: rgba(30, 41, 59, 0.2); }
+::-webkit-scrollbar-thumb  { background: rgba(71, 85, 105, 0.4); border-radius: 2px; }
 </style>

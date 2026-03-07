@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: 'http://localhost:3000/api',
+  baseURL: 'http://121.40.21.135:3000/api',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json'
@@ -19,6 +19,14 @@ api.interceptors.response.use(
 )
 
 // ==================== 统计相关 ====================
+
+/**
+ * GET /api/dashboard/stats
+ * 获取大屏统计数据
+ */
+export function getDashboardStats() {
+  return api.get('/dashboard/stats')
+}
 
 /**
  * GET /api/stats
@@ -170,6 +178,24 @@ export function createLocation(data) {
  */
 export function healthCheck() {
   return api.get('/health')
+}
+
+// ==================== 导出相关 ====================
+
+/**
+ * GET /api/export/inventory
+ * 导出库存数据
+ */
+export function exportInventory() {
+  return api.get('/export/inventory')
+}
+
+/**
+ * GET /api/export/logs
+ * 导出出入库流水
+ */
+export function exportLogs(params) {
+  return api.get('/export/logs', { params })
 }
 
 export default api
