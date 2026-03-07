@@ -13,7 +13,7 @@
     "inventory",
     "warehouse",
     "vue3",
-    "mysql"
+    "sqlite"
   ],
   "author": "",
   "license": "ISC",
@@ -27,7 +27,6 @@
     "html5-qrcode": "^2.3.8",
     "jsbarcode": "^3.12.3",
     "multer": "^2.1.1",
-    "mysql2": "^3.6.5",
     "print-js": "^1.6.0",
     "qrcode": "^1.5.4",
     "sqlite": "^5.1.1",
