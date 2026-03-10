@@ -50,16 +50,16 @@
             </button>
           </div>
 
-          <!-- 右侧今日统计 -->
-          <div class="flex items-center gap-6">
-            <div class="text-center">
-              <div :class="['text-2xl md:text-3xl font-bold', stationMode === 'out' ? 'text-amber-400' : 'text-emerald-400']">
+          <!-- 右侧今日统计 - 移动端改为 Grid 布局 -->
+          <div class="grid grid-cols-2 gap-3 md:flex md:items-center md:gap-6">
+            <div class="text-center bg-gray-50 dark:bg-slate-700/40 rounded-xl p-2 md:p-0">
+              <div :class="['text-xl md:text-3xl font-bold', stationMode === 'out' ? 'text-amber-400' : 'text-emerald-400']">
                 {{ todayStats.totalQuantity }}
               </div>
               <div class="text-xs text-gray-500 dark:text-slate-400">今日{{ stationMode === 'out' ? '出库' : '入库' }}</div>
             </div>
-            <div class="text-center">
-              <div class="text-2xl md:text-3xl font-bold text-blue-400">¥{{ todayStats.totalCost }}</div>
+            <div class="text-center bg-gray-50 dark:bg-slate-700/40 rounded-xl p-2 md:p-0">
+              <div class="text-xl md:text-3xl font-bold text-blue-400">¥{{ todayStats.totalCost }}</div>
               <div class="text-xs text-gray-500 dark:text-slate-400">今日成本</div>
             </div>
           </div>
@@ -89,9 +89,12 @@
         </div>
 
         <!-- 扫码设备切换 + 就绪状态 -->
-        <div class="flex items-center justify-between mb-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <!-- 扫码模式按钮组 -->
           <div class="flex gap-2">
+            <!-- PC扫码枪按钮 - 移动端隐藏 -->
             <button
+              v-if="!isMobileDevice"
               @click="scanMode = 'pc'"
               :class="[
                 'px-4 py-2 rounded-lg font-medium transition-all duration-200',
@@ -107,6 +110,7 @@
                 <span class="hidden sm:inline">PC扫码枪</span>
               </span>
             </button>
+            <!-- 手机扫码按钮 - 始终显示 -->
             <button
               @click="scanMode = 'mobile'"
               :class="[
@@ -126,10 +130,11 @@
             </button>
           </div>
 
+          <!-- 就绪状态指示 -->
           <div class="flex items-center gap-2">
             <div :class="['w-2 h-2 rounded-full transition-colors duration-500', scannerReady ? 'bg-emerald-500 animate-pulse' : 'bg-slate-500']"></div>
             <span :class="['text-sm', scannerReady ? 'text-emerald-400' : 'text-slate-400']">
-              {{ scannerReady ? '扫码枪就绪' : '等待扫码' }}
+              {{ scanMode === 'mobile' ? (cameraActive ? '扫码中...' : '等待扫码') : (scannerReady ? '扫码枪就绪' : '等待扫码') }}
             </span>
           </div>
         </div>
@@ -203,17 +208,32 @@
             <p class="mt-4 text-slate-400 text-sm">扫到条码后不要关闭摄像头，可连续扫码</p>
           </div>
 
-          <div v-show="showCamera" class="relative">
-            <div id="qr-reader" class="w-full rounded-xl overflow-hidden bg-black"></div>
+          <!-- 摄像头区域 - 使用 v-if 确保正确初始化 -->
+          <div v-if="showCamera" class="relative">
+            <!-- 确保容器有明确的高度 -->
+            <div id="qr-reader" class="w-full min-h-[300px] rounded-xl overflow-hidden bg-black relative">
+              <!-- 加载状态 -->
+              <div v-if="!cameraActive" class="absolute inset-0 flex items-center justify-center bg-black">
+                <div class="text-white text-center">
+                  <svg class="w-10 h-10 mx-auto animate-spin mb-2" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <p class="text-sm">正在启动摄像头...</p>
+                </div>
+              </div>
+            </div>
+            <!-- 关闭按钮 - 确保 z-index 足够高 -->
             <button
               @click="stopCamera"
-              class="absolute top-3 right-3 w-10 h-10 bg-slate-900/80 rounded-full flex items-center justify-center text-white hover:bg-slate-700 transition-colors"
+              class="absolute top-3 right-3 z-50 w-10 h-10 bg-slate-900/80 rounded-full flex items-center justify-center text-white hover:bg-slate-700 transition-colors"
             >
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
-            <div v-if="isProcessing" class="absolute inset-0 flex items-center justify-center bg-black/50">
+            <!-- 处理中遮罩 -->
+            <div v-if="isProcessing" class="absolute inset-0 flex items-center justify-center bg-black/50 z-40">
               <div class="flex items-center gap-2 text-amber-400 bg-slate-900 px-4 py-2 rounded-lg">
                 <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
                   <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -412,6 +432,15 @@ import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
 import { Html5Qrcode } from 'html5-qrcode'
 import { stockOut, stockIn, getTodayOutboundLogs, getInventoryLogs, getProductBySku } from '@/api'
 
+// ==================== 设备检测 ====================
+const isMobileDevice = ref(false)
+
+function detectDevice() {
+  const userAgent = navigator.userAgent || navigator.vendor || window.opera
+  const mobileRegex = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i
+  isMobileDevice.value = mobileRegex.test(userAgent.toLowerCase())
+}
+
 // ==================== 音效 ====================
 const playSuccessSound = () => {
   try {
@@ -449,12 +478,14 @@ function switchMode(mode) {
   lastScannedCode.value = ''
   errorMessage.value = ''
   loadTodayLogs()
-  // PC模式重新聚焦
-  if (scanMode.value === 'pc') nextTick(() => focusScanInput())
+  // PC 模式才重新聚焦
+  if (scanMode.value === 'pc' && !isMobileDevice.value) {
+    nextTick(() => focusScanInput())
+  }
 }
 
 // ==================== 扫码设备状态 ====================
-const scanMode      = ref('pc')
+const scanMode      = ref('pc')  // 默认 PC 模式，移动端会自动切换
 const isScanning    = ref(false)
 const isProcessing  = ref(false)
 const scannerReady  = ref(false)
@@ -462,6 +493,7 @@ const lastScannedCode = ref('')
 const showSuccessTip  = ref(false)
 const errorMessage    = ref('')
 const showCamera      = ref(false)
+const cameraActive    = ref(false)  // 摄像头是否真正启动成功
 const scanInputRef    = ref(null)
 
 // 扫码枪缓冲
@@ -493,8 +525,17 @@ const recentLogs = ref([])
 
 // ==================== 生命周期 ====================
 onMounted(() => {
+  detectDevice()
   window.addEventListener('keydown', handleKeydown)
-  nextTick(() => focusScanInput())
+
+  // 根据设备类型设置默认扫码模式
+  if (isMobileDevice.value) {
+    scanMode.value = 'mobile'
+  } else {
+    // PC 端才自动聚焦输入框，避免弹出软键盘
+    nextTick(() => focusScanInput())
+  }
+
   loadTodayLogs()
 })
 
@@ -535,7 +576,8 @@ function handleInputBlur() {
 }
 
 function focusScanInput() {
-  if (scanMode.value !== 'pc') return
+  // 移动端不聚焦输入框，避免弹出软键盘
+  if (scanMode.value !== 'pc' || isMobileDevice.value) return
   if (scanInputRef.value) {
     scanInputRef.value.focus()
     isScanning.value = true
@@ -572,12 +614,17 @@ async function doStockOut(barcode) {
     showSuccessTip.value = true
     setTimeout(() => { showSuccessTip.value = false }, 1500)
     await loadTodayLogs()
-    if (scanMode.value === 'pc') nextTick(() => focusScanInput())
+    // 只有 PC 端才重新聚焦输入框
+    if (scanMode.value === 'pc' && !isMobileDevice.value) {
+      nextTick(() => focusScanInput())
+    }
   } catch (error) {
     playErrorSound()
     errorMessage.value = error.message || '出库失败，请重试'
     setTimeout(() => { errorMessage.value = '' }, 5000)
-    if (scanMode.value === 'pc') nextTick(() => focusScanInput())
+    if (scanMode.value === 'pc' && !isMobileDevice.value) {
+      nextTick(() => focusScanInput())
+    }
   } finally {
     isProcessing.value = false
   }
@@ -623,7 +670,10 @@ async function confirmInbound() {
     showSuccessTip.value = true
     setTimeout(() => { showSuccessTip.value = false }, 1500)
     await loadTodayLogs()
-    if (scanMode.value === 'pc') nextTick(() => focusScanInput())
+    // 只有 PC 端才重新聚焦输入框
+    if (scanMode.value === 'pc' && !isMobileDevice.value) {
+      nextTick(() => focusScanInput())
+    }
   } catch (error) {
     playErrorSound()
     errorMessage.value = error.message || '入库失败，请重试'
@@ -637,23 +687,37 @@ function cancelInbound() {
   showInboundDialog.value = false
   pendingBarcode.value = ''
   pendingProduct.value = null
-  if (scanMode.value === 'pc') nextTick(() => focusScanInput())
+  // 只有 PC 端才重新聚焦输入框
+  if (scanMode.value === 'pc' && !isMobileDevice.value) {
+    nextTick(() => focusScanInput())
+  }
 }
 
 // ==================== 摄像头 ====================
 async function startCamera() {
   try {
+    // 先显示加载状态
+    showCamera.value = true
+    cameraActive.value = false
+
+    // 等待 DOM 更新
+    await nextTick()
+    await new Promise(resolve => setTimeout(resolve, 100))
+
     html5QrCode = new Html5Qrcode('qr-reader')
     await html5QrCode.start(
       { facingMode: 'environment' },
       { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 },
       (decodedText) => { handleScan(decodedText) },
-      () => {}
+      (errorMessage) => { /* 忽略扫描错误 */ }
     )
-    showCamera.value = true
+    // 摄像头启动成功
+    cameraActive.value = true
   } catch (error) {
     console.error('启动摄像头失败:', error)
-    errorMessage.value = '无法启动摄像头，请检查权限'
+    errorMessage.value = '无法启动摄像头，请检查权限或刷新页面重试'
+    showCamera.value = false
+    cameraActive.value = false
   }
 }
 
@@ -663,6 +727,7 @@ async function stopCamera() {
     html5QrCode = null
   }
   showCamera.value = false
+  cameraActive.value = false
 }
 
 // ==================== 数据加载 ====================

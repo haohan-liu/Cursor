@@ -57,7 +57,7 @@ const dbGet = (sql, params = []) => {
 function initDatabase() {
     return new Promise((resolve, reject) => {
         db.serialize(() => {
-            // 商品表（多属性版本）
+            // 商品表（多属性版本）- 添加版本号字段用于乐观锁
             db.run(`
                 CREATE TABLE IF NOT EXISTS products (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -74,6 +74,7 @@ function initDatabase() {
                     location_code VARCHAR(30),
                     image_url VARCHAR(255),
                     remark VARCHAR(500),
+                    version INTEGER NOT NULL DEFAULT 0,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
@@ -85,6 +86,7 @@ function initDatabase() {
             db.run(`ALTER TABLE products ADD COLUMN thread_size TEXT`, () => {})
             db.run(`ALTER TABLE products ADD COLUMN light_status TEXT`, () => {})
             db.run(`ALTER TABLE products ADD COLUMN location_code VARCHAR(30)`, () => {})
+            db.run(`ALTER TABLE products ADD COLUMN version INTEGER DEFAULT 0`, () => {})
 
             // 库位表
             db.run(`
@@ -572,7 +574,7 @@ app.get('/api/products/sku/:skuCode', async (req, res) => {
 
 /**
  * POST /api/products
- * 创建商品
+ * 创建商品 - 增强 Payload 验证
  */
 app.post('/api/products', async (req, res) => {
     try {
@@ -591,14 +593,41 @@ app.post('/api/products', async (req, res) => {
             remark
         } = req.body
 
-        if (!sku_code || !name) {
-            return res.status(400).json({ success: false, message: '缺少必要参数' })
+        // 必填字段验证
+        if (!sku_code || typeof sku_code !== 'string' || sku_code.trim() === '') {
+            return res.status(400).json({ success: false, message: '缺少有效的SKU条码' })
+        }
+        
+        if (!name || typeof name !== 'string' || name.trim() === '') {
+            return res.status(400).json({ success: false, message: '缺少有效的商品名称' })
+        }
+
+        // 字段长度限制（防止注入）
+        const safeSkuCode = sku_code.trim().substring(0, 100)
+        const safeName = name.trim().substring(0, 100)
+        const safeLogoType = (logo_type && typeof logo_type === 'string') ? logo_type.trim().substring(0, 50) : null
+        const safeColorStyle = (color_style && typeof color_style === 'string') ? color_style.trim().substring(0, 50) : null
+        const safeThreadSize = (thread_size && typeof thread_size === 'string') ? thread_size.trim().substring(0, 50) : null
+        const safeLightStatus = (light_status && typeof light_status === 'string') ? light_status.trim().substring(0, 50) : null
+        const safeLocationCode = (location_code && typeof location_code === 'string') ? location_code.trim().substring(0, 30) : null
+        const safeImageUrl = (image_url && typeof image_url === 'string') ? image_url.trim().substring(0, 255) : null
+        const safeRemark = (remark && typeof remark === 'string') ? remark.trim().substring(0, 500) : null
+
+        // 数值字段验证
+        const safeCostPrice = parseFloat(cost_price)
+        if (isNaN(safeCostPrice) || safeCostPrice < 0 || safeCostPrice > 999999.99) {
+            return res.status(400).json({ success: false, message: '成本价必须在 0-999999.99 之间' })
+        }
+
+        const safeSafeStock = parseInt(safe_stock, 10) || 0
+        if (isNaN(safeSafeStock) || safeSafeStock < 0 || safeSafeStock > 999999) {
+            return res.status(400).json({ success: false, message: '安全库存必须在 0-999999 之间' })
         }
 
         const result = await dbRun(
-            `INSERT INTO products (sku_code, name, logo_type, color_style, thread_size, light_status, attributes, cost_price, safe_stock, location_code, image_url, remark)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [sku_code, name, logo_type, color_style, thread_size, light_status, JSON.stringify(attributes), parseFloat(cost_price) || 0, safe_stock || 0, location_code, image_url, remark]
+            `INSERT INTO products (sku_code, name, logo_type, color_style, thread_size, light_status, attributes, cost_price, safe_stock, location_code, image_url, remark, version)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+            [safeSkuCode, safeName, safeLogoType, safeColorStyle, safeThreadSize, safeLightStatus, JSON.stringify(attributes), safeCostPrice, safeSafeStock, safeLocationCode, safeImageUrl, safeRemark]
         )
 
         res.json({
@@ -617,100 +646,129 @@ app.post('/api/products', async (req, res) => {
 
 /**
  * POST /api/inventory/out
- * 扫码出库接口
+ * 扫码出库接口 - 防御并发Race Condition
+ * 1. 使用乐观锁 (version) 防止并发冲突
+ * 2. 使用原子 UPDATE + WHERE 条件确保库存不为负
+ * 3. 严格验证 Payload
  */
 app.post('/api/inventory/out', async (req, res) => {
-    const { sku_code, quantity = 1, location_id, operator, remark, reference_no } = req.body
-
-    if (!sku_code) {
-        return res.status(400).json({ success: false, message: '缺少SKU条码' })
+    // ==================== 1. Payload 严格验证 ====================
+    const { sku_code, quantity, location_id, operator, remark, reference_no, expected_version } = req.body
+    
+    // 必填字段验证
+    if (!sku_code || typeof sku_code !== 'string' || sku_code.trim() === '') {
+        return res.status(400).json({ success: false, message: '缺少有效的SKU条码' })
     }
+    
+    // 数量验证：正整数，上限 10000
+    if (quantity === undefined || quantity === null) {
+        return res.status(400).json({ success: false, message: '缺少数量参数' })
+    }
+    
+    const parsedQty = parseInt(quantity, 10)
+    if (isNaN(parsedQty) || parsedQty <= 0 || parsedQty > 10000) {
+        return res.status(400).json({ success: false, message: '数量必须为 1-10000 的正整数' })
+    }
+    
+    // 操作人验证
+    const safeOperator = (operator && typeof operator === 'string') 
+        ? operator.substring(0, 50) 
+        : 'Anonymous'
+    
+    // 备注长度限制
+    const safeRemark = (remark && typeof remark === 'string')
+        ? remark.substring(0, 200)
+        : ''
 
     try {
-        const product = await dbGet('SELECT id, cost_price, current_stock FROM products WHERE sku_code = ?', [sku_code])
+        // ==================== 2. 获取产品及版本号 ====================
+        const product = await dbGet(
+            'SELECT id, cost_price, current_stock, version FROM products WHERE sku_code = ?', 
+            [sku_code.trim()]
+        )
 
         if (!product) {
             return res.status(404).json({ success: false, message: '商品不存在' })
         }
 
-        // 检查库存
-        if (product.current_stock < quantity) {
-            return res.status(400).json({
-                success: false,
-                message: `库存不足，当前库存: ${product.current_stock}`
-            })
+        // 客户端可传入期望版本号用于乐观锁（可选）
+        const clientVersion = expected_version !== undefined 
+            ? parseInt(expected_version, 10) 
+            : product.version
+
+        // ==================== 3. 原子操作：条件更新 ====================
+        // 关键：UPDATE ... WHERE 条件同时检查库存 >= 数量 AND version 匹配
+        // 这样即使并发请求，也只有第一个能成功
+        const updateResult = await dbRun(
+            `UPDATE products 
+             SET current_stock = current_stock - ?, 
+                 version = version + 1,
+                 updated_at = CURRENT_TIMESTAMP 
+             WHERE id = ? 
+               AND current_stock >= ? 
+               AND version = ?`,
+            [parsedQty, product.id, parsedQty, clientVersion]
+        )
+
+        // ==================== 4. 检查更新是否成功 ====================
+        if (updateResult.changes === 0) {
+            // 可能是：库存不足 或 版本号不匹配（并发冲突）
+            const currentProduct = await dbGet(
+                'SELECT current_stock, version FROM products WHERE id = ?',
+                [product.id]
+            )
+            
+            if (currentProduct.version !== clientVersion) {
+                // 版本号不匹配 - 并发冲突
+                return res.status(409).json({ 
+                    success: false, 
+                    message: '操作过于频繁，请稍后重试',
+                    code: 'CONCURRENT_CONFLICT'
+                })
+            } else {
+                // 库存不足
+                return res.status(400).json({
+                    success: false,
+                    message: `库存不足，当前库存: ${currentProduct.current_stock}`,
+                    code: 'INSUFFICIENT_STOCK'
+                })
+            }
         }
 
-        const totalCost = quantity * product.cost_price
+        // ==================== 5. 获取更新后的库存（用于返回） ====================
+        const updatedProduct = await dbGet(
+            'SELECT current_stock, version FROM products WHERE id = ?',
+            [product.id]
+        )
 
-        // 使用 serialize 确保事务性
-        await new Promise((resolve, reject) => {
-            db.serialize(() => {
-                db.run('BEGIN TRANSACTION')
+        const totalCost = parsedQty * product.cost_price
 
-                // 1. 写入出库流水
-                db.run(
-                    `INSERT INTO inventory_logs (product_id, location_id, type, quantity, unit_cost, total_cost, reference_no, operator, remark)
-                     VALUES (?, ?, 'OUT', ?, ?, ?, ?, ?, ?)`,
-                    [product.id, location_id || null, quantity, product.cost_price, totalCost, reference_no, operator, remark],
-                    function(err) {
-                        if (err) {
-                            db.run('ROLLBACK')
-                            reject(err)
-                            return
-                        }
-                    }
-                )
+        // ==================== 6. 记录流水（事务外） ====================
+        await dbRun(
+            `INSERT INTO inventory_logs (product_id, location_id, type, quantity, unit_cost, total_cost, reference_no, operator, remark)
+             VALUES (?, ?, 'OUT', ?, ?, ?, ?, ?, ?)`,
+            [product.id, location_id || null, parsedQty, product.cost_price, totalCost, reference_no, safeOperator, safeRemark]
+        )
 
-                // 2. 扣减商品库存
-                db.run(
-                    'UPDATE products SET current_stock = current_stock - ? WHERE id = ?',
-                    [quantity, product.id],
-                    function(err) {
-                        if (err) {
-                            db.run('ROLLBACK')
-                            reject(err)
-                            return
-                        }
-                    }
-                )
-
-                // 3. 如果有指定库位，扣减库位库存
-                if (location_id) {
-                    db.run(
-                        'UPDATE locations SET stock = stock - ? WHERE id = ?',
-                        [quantity, location_id],
-                        function(err) {
-                            if (err) {
-                                db.run('ROLLBACK')
-                                reject(err)
-                                return
-                            }
-                        }
-                    )
-                }
-
-                db.run('COMMIT', (err) => {
-                    if (err) {
-                        db.run('ROLLBACK')
-                        reject(err)
-                    } else {
-                        resolve()
-                    }
-                })
-            })
-        })
+        // 如果有指定库位，扣减库位库存
+        if (location_id) {
+            await dbRun(
+                'UPDATE locations SET stock = stock - ? WHERE id = ? AND stock >= ?',
+                [parsedQty, location_id, parsedQty]
+            )
+        }
 
         res.json({
             success: true,
             message: '出库成功',
             data: {
                 product_id: product.id,
-                sku_code,
-                quantity,
+                sku_code: sku_code.trim(),
+                quantity: parsedQty,
                 unit_cost: product.cost_price,
                 total_cost: totalCost,
-                remaining_stock: product.current_stock - quantity
+                remaining_stock: updatedProduct.current_stock,
+                version: updatedProduct.version
             }
         })
     } catch (error) {
@@ -721,102 +779,121 @@ app.post('/api/inventory/out', async (req, res) => {
 
 /**
  * POST /api/inventory/in
- * 扫码入库接口
+ * 扫码入库接口 - 防御并发Race Condition
+ * 1. 使用乐观锁 (version) 防止并发冲突
+ * 2. 使用原子 UPDATE 确保数据一致性
+ * 3. 严格验证 Payload
  */
 app.post('/api/inventory/in', async (req, res) => {
-    const { sku_code, quantity = 1, location_id, operator, remark, reference_no, cost_price } = req.body
-
-    if (!sku_code || !quantity) {
-        return res.status(400).json({ success: false, message: '缺少必要参数' })
+    // ==================== 1. Payload 严格验证 ====================
+    const { sku_code, quantity, location_id, operator, remark, reference_no, cost_price, expected_version } = req.body
+    
+    // 必填字段验证
+    if (!sku_code || typeof sku_code !== 'string' || sku_code.trim() === '') {
+        return res.status(400).json({ success: false, message: '缺少有效的SKU条码' })
     }
+    
+    // 数量验证：正整数，上限 100000
+    if (quantity === undefined || quantity === null) {
+        return res.status(400).json({ success: false, message: '缺少数量参数' })
+    }
+    
+    const parsedQty = parseInt(quantity, 10)
+    if (isNaN(parsedQty) || parsedQty <= 0 || parsedQty > 100000) {
+        return res.status(400).json({ success: false, message: '数量必须为 1-100000 的正整数' })
+    }
+    
+    // 操作人验证
+    const safeOperator = (operator && typeof operator === 'string') 
+        ? operator.substring(0, 50) 
+        : 'Anonymous'
+    
+    // 备注长度限制
+    const safeRemark = (remark && typeof remark === 'string')
+        ? remark.substring(0, 200)
+        : ''
 
     try {
-        // 1. 查询商品是否存在
-        let unitCost = parseFloat(cost_price) || 0
-
+        // ==================== 2. 查询商品是否存在 ====================
         const product = await dbGet(
-            'SELECT id, cost_price, current_stock FROM products WHERE sku_code = ?',
-            [sku_code]
+            'SELECT id, cost_price, current_stock, version FROM products WHERE sku_code = ?',
+            [sku_code.trim()]
         )
 
         if (!product) {
             return res.status(404).json({ success: false, message: '商品不存在，请先创建商品' })
         }
 
-        // 商品存在，使用当前成本价
-        unitCost = product.cost_price
         const productId = product.id
+        const unitCost = product.cost_price  // 使用数据库中已有成本价
+        
+        // 客户端可传入期望版本号用于乐观锁（可选）
+        const clientVersion = expected_version !== undefined 
+            ? parseInt(expected_version, 10) 
+            : product.version
 
-        const totalCost = quantity * unitCost
+        const totalCost = parsedQty * unitCost
 
-        // 使用 serialize 确保事务性
-        await new Promise((resolve, reject) => {
-            db.serialize(() => {
-                db.run('BEGIN TRANSACTION')
+        // ==================== 3. 原子操作：更新库存和版本号 ====================
+        const updateResult = await dbRun(
+            `UPDATE products 
+             SET current_stock = current_stock + ?, 
+                 version = version + 1,
+                 updated_at = CURRENT_TIMESTAMP 
+             WHERE id = ? 
+               AND version = ?`,
+            [parsedQty, productId, clientVersion]
+        )
 
-                // 2. 写入入库流水
-                db.run(
-                    `INSERT INTO inventory_logs (product_id, location_id, type, quantity, unit_cost, total_cost, reference_no, operator, remark)
-                     VALUES (?, ?, 'IN', ?, ?, ?, ?, ?, ?)`,
-                    [productId, location_id || null, quantity, unitCost, totalCost, reference_no, operator, remark],
-                    function(err) {
-                        if (err) {
-                            db.run('ROLLBACK')
-                            reject(err)
-                            return
-                        }
-                    }
-                )
-
-                // 3. 增加商品库存
-                db.run(
-                    'UPDATE products SET current_stock = current_stock + ? WHERE id = ?',
-                    [quantity, productId],
-                    function(err) {
-                        if (err) {
-                            db.run('ROLLBACK')
-                            reject(err)
-                            return
-                        }
-                    }
-                )
-
-                // 4. 如果有指定库位，增加库位库存
-                if (location_id) {
-                    db.run(
-                        'UPDATE locations SET stock = stock + ? WHERE id = ?',
-                        [quantity, location_id],
-                        function(err) {
-                            if (err) {
-                                db.run('ROLLBACK')
-                                reject(err)
-                                return
-                            }
-                        }
-                    )
-                }
-
-                db.run('COMMIT', (err) => {
-                    if (err) {
-                        db.run('ROLLBACK')
-                        reject(err)
-                    } else {
-                        resolve()
-                    }
-                })
+        // ==================== 4. 检查更新是否成功 ====================
+        if (updateResult.changes === 0) {
+            // 版本号不匹配 - 并发冲突
+            return res.status(409).json({ 
+                success: false, 
+                message: '操作过于频繁，请稍后重试',
+                code: 'CONCURRENT_CONFLICT'
             })
-        })
+        }
+
+        // ==================== 5. 获取更新后的库存 ====================
+        const updatedProduct = await dbGet(
+            'SELECT current_stock, version FROM products WHERE id = ?',
+            [productId]
+        )
+
+        // ==================== 6. 记录流水 ====================
+        await dbRun(
+            `INSERT INTO inventory_logs (product_id, location_id, type, quantity, unit_cost, total_cost, reference_no, operator, remark)
+             VALUES (?, ?, 'IN', ?, ?, ?, ?, ?, ?)`,
+            [productId, location_id || null, parsedQty, unitCost, totalCost, reference_no, safeOperator, safeRemark]
+        )
+
+        // 如果有指定库位，增加库位库存
+        if (location_id) {
+            await dbRun(
+                'UPDATE locations SET stock = stock + ? WHERE id = ?',
+                [parsedQty, location_id]
+            )
+        }
 
         res.json({
             success: true,
             message: '入库成功',
             data: {
                 product_id: productId,
-                sku_code,
-                quantity,
+                sku_code: sku_code.trim(),
+                quantity: parsedQty,
                 unit_cost: unitCost,
                 total_cost: totalCost,
-                remaining_stock: product.current_stock + quantity
+                remaining_stock: updatedProduct.current_stock,
+                version: updatedProduct.version
+            }
+        })
+    } catch (error) {
+        console.error('入库失败:', error)
+        res.status(500).json({ success: false, message: '入库失败' })
+    }
+})
             }
         })
     } catch (error) {
@@ -1018,7 +1095,7 @@ app.post('/api/locations', async (req, res) => {
 
 /**
  * PUT /api/products/:id
- * 更新商品信息
+ * 更新商品信息 - 增强 Payload 验证 + 乐观锁
  */
 app.put('/api/products/:id', async (req, res) => {
     try {
@@ -1033,20 +1110,98 @@ app.put('/api/products/:id', async (req, res) => {
             safe_stock,
             location_code,
             image_url,
-            remark
+            remark,
+            expected_version
         } = req.body
         const { id } = req.params
 
-        const result = await dbRun(
-            `UPDATE products SET name = ?, logo_type = ?, color_style = ?, thread_size = ?, light_status = ?, attributes = ?, cost_price = ?, safe_stock = ?, location_code = ?, image_url = ?, remark = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-            [name, logo_type, color_style, thread_size, light_status, JSON.stringify(attributes), cost_price, safe_stock, location_code, image_url, remark, id]
-        )
+        // ID 验证
+        const parsedId = parseInt(id, 10)
+        if (isNaN(parsedId) || parsedId <= 0) {
+            return res.status(400).json({ success: false, message: '无效的商品ID' })
+        }
 
-        if (result.changes === 0) {
+        // 字段验证
+        if (name !== undefined && (typeof name !== 'string' || name.trim() === '')) {
+            return res.status(400).json({ success: false, message: '商品名称无效' })
+        }
+
+        const safeName = name ? name.trim().substring(0, 100) : undefined
+        const safeLogoType = (logo_type && typeof logo_type === 'string') ? logo_type.trim().substring(0, 50) : undefined
+        const safeColorStyle = (color_style && typeof color_style === 'string') ? color_style.trim().substring(0, 50) : undefined
+        const safeThreadSize = (thread_size && typeof thread_size === 'string') ? thread_size.trim().substring(0, 50) : undefined
+        const safeLightStatus = (light_status && typeof light_status === 'string') ? light_status.trim().substring(0, 50) : undefined
+        const safeLocationCode = (location_code && typeof location_code === 'string') ? location_code.trim().substring(0, 30) : undefined
+        const safeImageUrl = (image_url && typeof image_url === 'string') ? image_url.trim().substring(0, 255) : undefined
+        const safeRemark = (remark && typeof remark === 'string') ? remark.trim().substring(0, 500) : undefined
+
+        // 数值字段验证
+        if (cost_price !== undefined) {
+            const safeCostPrice = parseFloat(cost_price)
+            if (isNaN(safeCostPrice) || safeCostPrice < 0 || safeCostPrice > 999999.99) {
+                return res.status(400).json({ success: false, message: '成本价必须在 0-999999.99 之间' })
+            }
+        }
+
+        if (safe_stock !== undefined) {
+            const safeStock = parseInt(safe_stock, 10)
+            if (isNaN(safeStock) || safeStock < 0 || safeStock > 999999) {
+                return res.status(400).json({ success: false, message: '安全库存必须在 0-999999 之间' })
+            }
+        }
+
+        // 获取当前产品信息（用于乐观锁）
+        const currentProduct = await dbGet('SELECT version FROM products WHERE id = ?', [parsedId])
+        if (!currentProduct) {
             return res.status(404).json({ success: false, message: '商品不存在' })
         }
 
-        res.json({ success: true, message: '商品更新成功' })
+        // 版本号验证（乐观锁）
+        const clientVersion = expected_version !== undefined 
+            ? parseInt(expected_version, 10) 
+            : currentProduct.version
+
+        // 构建动态更新语句
+        const updates = []
+        const params = []
+        
+        if (safeName !== undefined) { updates.push('name = ?'); params.push(safeName) }
+        if (safeLogoType !== undefined) { updates.push('logo_type = ?'); params.push(safeLogoType) }
+        if (safeColorStyle !== undefined) { updates.push('color_style = ?'); params.push(safeColorStyle) }
+        if (safeThreadSize !== undefined) { updates.push('thread_size = ?'); params.push(safeThreadSize) }
+        if (safeLightStatus !== undefined) { updates.push('light_status = ?'); params.push(safeLightStatus) }
+        if (attributes !== undefined) { updates.push('attributes = ?'); params.push(JSON.stringify(attributes)) }
+        if (cost_price !== undefined) { updates.push('cost_price = ?'); params.push(parseFloat(cost_price)) }
+        if (safe_stock !== undefined) { updates.push('safe_stock = ?'); params.push(parseInt(safe_stock, 10)) }
+        if (safeLocationCode !== undefined) { updates.push('location_code = ?'); params.push(safeLocationCode) }
+        if (safeImageUrl !== undefined) { updates.push('image_url = ?'); params.push(safeImageUrl) }
+        if (safeRemark !== undefined) { updates.push('remark = ?'); params.push(safeRemark) }
+        
+        updates.push('version = version + 1')
+        updates.push('updated_at = CURRENT_TIMESTAMP')
+        
+        // 添加版本号条件实现乐观锁
+        params.push(clientVersion)
+        params.push(parsedId)
+
+        const result = await dbRun(
+            `UPDATE products SET ${updates.join(', ')} WHERE id = ? AND version = ?`,
+            params
+        )
+
+        if (result.changes === 0) {
+            return res.status(409).json({ 
+                success: false, 
+                message: '数据已被其他操作修改，请刷新后重试',
+                code: 'CONCURRENT_CONFLICT'
+            })
+        }
+
+        res.json({ 
+            success: true, 
+            message: '商品更新成功',
+            data: { version: clientVersion + 1 }
+        })
     } catch (error) {
         console.error('更新商品失败:', error)
         res.status(500).json({ success: false, message: '更新商品失败' })
@@ -1199,6 +1354,9 @@ app.get('/api/export/logs', async (req, res) => {
 // ==================== 启动服务器 ====================
 async function startServer() {
     try {
+        // 先执行数据库迁移
+        await runMigrations()
+        // 然后初始化数据库
         await initDatabase()
         app.listen(PORT, () => {
             console.log(`🚀 服务器运行在 http://localhost:${PORT}`)
@@ -1207,6 +1365,51 @@ async function startServer() {
         console.error('❌ 服务器启动失败:', error)
         process.exit(1)
     }
+}
+
+// ==================== 迁移函数（供启动时调用）====================
+function runMigrations() {
+    return new Promise((resolve, reject) => {
+        db.serialize(() => {
+            // 创建迁移记录表
+            db.run(`
+                CREATE TABLE IF NOT EXISTS migrations (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT UNIQUE NOT NULL,
+                    executed_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            `, (err) => {
+                if (err) { reject(err); return }
+                
+                // 迁移 001: 添加 version 字段
+                db.get('SELECT id FROM migrations WHERE name = ?', ['001_add_version'], (err, row) => {
+                    if (err) { reject(err); return }
+                    
+                    if (!row) {
+                        // 执行迁移
+                        db.run('ALTER TABLE products ADD COLUMN version INTEGER DEFAULT 0', (err) => {
+                            if (err && !err.message.includes('duplicate column')) {
+                                console.log(`⚠️  迁移 001: ${err.message}`)
+                            } else {
+                                console.log('✅ 执行迁移: 001_add_version')
+                                db.run('INSERT INTO migrations (name) VALUES (?)', ['001_add_version'])
+                            }
+                            
+                            // 添加索引优化并发性能
+                            db.run('CREATE INDEX IF NOT EXISTS idx_products_version ON products(version)', () => {
+                                db.run('CREATE INDEX IF NOT EXISTS idx_products_sku ON products(sku_code)', () => {
+                                    resolve()
+                                })
+                            })
+                        })
+                    } else {
+                        console.log('⏭️  迁移已执行: 001_add_version')
+                        resolve()
+                    }
+                })
+            })
+        })
+    })
 }
 
 startServer()

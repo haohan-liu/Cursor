@@ -8,14 +8,14 @@
           <h1 class="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">库位地图</h1>
           <p class="text-gray-500 dark:text-slate-400 text-sm">Warehouse Map · 实时库存可视化</p>
         </div>
-        <div class="flex items-center gap-3 flex-wrap">
-          <div class="relative">
+        <div class="flex items-center gap-2 md:gap-3">
+          <div class="relative flex-1 min-w-0 sm:flex-none sm:w-52">
             <input
               v-model="searchKeyword"
               @input="handleSearch"
               type="text"
               placeholder="输入 SKU 或商品名称..."
-              class="pl-9 pr-4 py-2 bg-gray-50 dark:bg-slate-900 border border-gray-300 dark:border-slate-700 rounded-xl text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none w-52"
+              class="pl-9 pr-4 py-2 bg-gray-50 dark:bg-slate-900 border border-gray-300 dark:border-slate-700 rounded-xl text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none w-full"
             />
             <svg class="w-4 h-4 text-gray-400 dark:text-slate-500 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -23,12 +23,12 @@
           </div>
           <button
             @click="addShelf"
-            class="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-medium text-sm transition-colors flex items-center gap-1.5 shadow-lg shadow-emerald-500/20"
+            class="px-3 py-2 md:px-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-medium text-sm transition-colors flex items-center gap-1.5 shadow-lg shadow-emerald-500/20 whitespace-nowrap"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
             </svg>
-            新增货架
+            <span class="hidden sm:inline">新增货架</span>
           </button>
         </div>
       </div>

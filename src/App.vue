@@ -38,20 +38,40 @@
 
     <!-- ===== 移动端底部 Tab Bar（md 以下显示） ===== -->
     <nav
-      class="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t transition-colors duration-300
-             bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-gray-200 dark:border-slate-800"
+      class="md:hidden fixed bottom-0 left-0 right-0 z-50 transition-colors duration-300
+             bg-white dark:bg-slate-900"
       style="padding-bottom: env(safe-area-inset-bottom)"
     >
-      <div class="flex justify-around items-stretch h-16">
+      <!-- 顶部阴影隔离内容区 -->
+      <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-b from-gray-200/60 dark:from-slate-700/60 to-transparent"></div>
+
+      <div class="flex justify-around items-stretch h-[68px] pt-1">
         <button
           v-for="tab in mobileTabs"
           :key="tab.key"
           @click="currentTab = tab.key"
-          class="flex-1 flex flex-col items-center justify-center py-2 transition-transform active:scale-95 outline-none"
-          :class="currentTab === tab.key ? 'text-amber-500' : 'text-slate-400'"
+          class="flex-1 flex flex-col items-center justify-start pt-2 relative outline-none group"
+          :class="currentTab === tab.key ? 'text-amber-500' : 'text-slate-400 dark:text-slate-500'"
         >
-          <span class="text-xl leading-none">{{ tab.icon }}</span>
-          <span class="text-[10px] mt-1 font-medium leading-none">{{ tab.label }}</span>
+          <!-- 选中状态指示器 -->
+          <div
+            class="absolute top-0 left-1/2 -translate-x-1/2 w-10 h-0.5 rounded-full transition-all duration-300"
+            :class="currentTab === tab.key ? 'bg-amber-500 scale-100' : 'scale-0 group-hover:scale-50 group-hover:bg-slate-300 dark:group-hover:bg-slate-600'"
+          ></div>
+
+          <!-- 图标容器 -->
+          <div
+            class="w-7 h-7 flex items-center justify-center mb-1 transition-all duration-200"
+            :class="currentTab === tab.key ? 'transform scale-110' : ''"
+          >
+            <component :is="tab.icon" class="w-6 h-6" />
+          </div>
+
+          <!-- 文字标签 -->
+          <span
+            class="text-[11px] font-medium leading-tight transition-all duration-200"
+            :class="currentTab === tab.key ? 'text-amber-500' : 'text-slate-500 dark:text-slate-400'"
+          >{{ tab.label }}</span>
         </button>
       </div>
     </nav>
@@ -77,11 +97,25 @@ const currentComponent = computed(() => components[currentTab.value])
 
 // 移动端底部导航配置
 const mobileTabs = [
-  { key: 'Dashboard',       icon: '📊', label: '看板'   },
-  { key: 'ScanStation',     icon: '🔫', label: '扫码'   },
-  { key: 'InventoryManage', icon: '📦', label: '库存'   },
-  { key: 'WarehouseMap',    icon: '🗺️', label: '地图'   },
+  { key: 'Dashboard',       label: '看板', icon: DashboardIcon   },
+  { key: 'ScanStation',     label: '扫码', icon: ScanStationIcon },
+  { key: 'InventoryManage', label: '库存', icon: InventoryIcon    },
+  { key: 'WarehouseMap',    label: '底图', icon: MapIcon          },
 ]
+
+// 底部导航图标组件
+const DashboardIcon = {
+  template: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>`
+}
+const ScanStationIcon = {
+  template: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/></svg>`
+}
+const InventoryIcon = {
+  template: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>`
+}
+const MapIcon = {
+  template: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>`
+}
 
 // PC 端顶部导航按钮样式
 function navBtnClass(tab) {
@@ -106,8 +140,13 @@ function applyTheme(dark) {
 
 function toggleTheme() { applyTheme(!isDark.value) }
 
+// 导出给子组件使用
+defineExpose({ isDark, toggleTheme })
+
 onMounted(() => {
-  const saved      = localStorage.getItem('theme')
+  // 从 localStorage 读取主题（注意：HTML 中已预加载 dark class，这里仅做同步）
+  const saved = localStorage.getItem('theme')
+  // 如果 localStorage 有值则使用，否则默认暗色
   const preferDark = saved ? saved === 'dark' : true
   applyTheme(preferDark)
 })

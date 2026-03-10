@@ -1,18 +1,64 @@
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-slate-900 dark:to-slate-800 p-4 md:p-6 transition-colors duration-300">
+  <!-- 骨架屏加载状态 -->
+  <div v-if="isLoading" class="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-slate-900 dark:to-slate-800 p-4 md:p-6">
+    <div class="max-w-7xl mx-auto">
+      <!-- 标题骨架 -->
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+        <div class="skeleton h-12 w-48"></div>
+        <div class="skeleton h-10 w-32"></div>
+      </div>
+
+      <!-- 统计卡片骨架 -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6">
+        <div v-for="i in 4" :key="i" class="skeleton h-28 rounded-2xl"></div>
+      </div>
+      
+      <!-- 第二行统计骨架 -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6">
+        <div v-for="i in 4" :key="'b'+i" class="skeleton h-28 rounded-2xl"></div>
+      </div>
+
+      <!-- 缺货预警骨架 -->
+      <div class="skeleton h-64 rounded-2xl mb-6"></div>
+
+      <!-- 图表和排行骨架 -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="skeleton h-[400px] rounded-2xl"></div>
+        <div class="skeleton h-[400px] rounded-2xl"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 正常内容 -->
+  <div v-else class="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-slate-900 dark:to-slate-800 p-4 md:p-6 transition-colors duration-300">
     <div class="max-w-7xl mx-auto">
       <!-- 顶部标题栏 -->
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-        <div>
-          <h1 class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">数据看板</h1>
-          <p class="text-gray-500 dark:text-slate-400">Inventory Dashboard</p>
+        <div class="flex items-start justify-between gap-3 w-full">
+          <div>
+            <h1 class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">数据看板</h1>
+            <p class="text-gray-500 dark:text-slate-400">Inventory Dashboard</p>
+          </div>
+          <!-- 主题切换按钮 - 始终显示 -->
+          <button
+            @click="toggleTheme"
+            :title="isDark ? '切换到亮色模式' : '切换到暗色模式'"
+            class="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-600 dark:text-slate-300"
+          >
+            <svg v-if="isDark" class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+            <svg v-else class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+            </svg>
+          </button>
         </div>
         
         <!-- 导出按钮 -->
         <button
           @click="exportToExcel"
           :disabled="isExporting"
-          class="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 disabled:bg-gray-300 dark:disabled:bg-slate-600 text-white rounded-xl font-medium transition-all duration-200 hover:shadow-lg hover:shadow-emerald-500/30 active:scale-95"
+          class="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 disabled:bg-gray-300 dark:disabled:bg-slate-600 text-white rounded-xl font-medium transition-all duration-200 hover:shadow-lg hover:shadow-emerald-500/30 active:scale-95 disabled:active:scale-100"
         >
           <svg v-if="!isExporting" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -29,15 +75,15 @@
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6">
         <!-- 总库存 -->
         <div class="bg-white dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-200 dark:border-slate-700/50 hover:border-cyan-500/50 transition-all duration-300 group shadow-sm dark:shadow-none">
-          <div class="flex items-start justify-between">
-            <div>
+          <div class="flex items-start justify-between gap-2">
+            <div class="flex-shrink-0 min-w-0">
               <p class="text-gray-500 dark:text-slate-400 text-sm mb-1">总库存</p>
               <p class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white group-hover:text-cyan-400 transition-colors">
                 {{ formatNumber(dashboardStats.totalStock) }}
                 <span class="text-lg text-gray-400 dark:text-slate-500 font-normal">件</span>
               </p>
             </div>
-            <div class="w-10 h-10 bg-cyan-500/20 rounded-xl flex items-center justify-center">
+            <div class="w-10 h-10 bg-cyan-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
               <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
               </svg>
@@ -47,14 +93,14 @@
 
         <!-- 总资产 -->
         <div class="bg-white dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-200 dark:border-slate-700/50 hover:border-yellow-500/50 transition-all duration-300 group shadow-sm dark:shadow-none">
-          <div class="flex items-start justify-between">
-            <div>
+          <div class="flex items-start justify-between gap-2">
+            <div class="flex-shrink-0 min-w-0">
               <p class="text-gray-500 dark:text-slate-400 text-sm mb-1">总资产</p>
               <p class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white group-hover:text-yellow-400 transition-colors">
                 ¥{{ formatMoney(dashboardStats.totalAsset) }}
               </p>
             </div>
-            <div class="w-10 h-10 bg-yellow-500/20 rounded-xl flex items-center justify-center">
+            <div class="w-10 h-10 bg-yellow-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
               <svg class="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
@@ -64,15 +110,15 @@
 
         <!-- 本月入库 -->
         <div class="bg-white dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-200 dark:border-slate-700/50 hover:border-green-500/50 transition-all duration-300 group shadow-sm dark:shadow-none">
-          <div class="flex items-start justify-between">
-            <div>
+          <div class="flex items-start justify-between gap-2">
+            <div class="flex-shrink-0 min-w-0">
               <p class="text-gray-500 dark:text-slate-400 text-sm mb-1">本月入库</p>
               <p class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white group-hover:text-green-400 transition-colors">
                 {{ formatNumber(dashboardStats.monthIn) }}
                 <span class="text-lg text-gray-400 dark:text-slate-500 font-normal">件</span>
               </p>
             </div>
-            <div class="w-10 h-10 bg-green-500/20 rounded-xl flex items-center justify-center">
+            <div class="w-10 h-10 bg-green-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
               <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
               </svg>
@@ -82,15 +128,15 @@
 
         <!-- 本月出库 -->
         <div class="bg-white dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-200 dark:border-slate-700/50 hover:border-orange-500/50 transition-all duration-300 group shadow-sm dark:shadow-none">
-          <div class="flex items-start justify-between">
-            <div>
+          <div class="flex items-start justify-between gap-2">
+            <div class="flex-shrink-0 min-w-0">
               <p class="text-gray-500 dark:text-slate-400 text-sm mb-1">本月出库</p>
               <p class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white group-hover:text-orange-400 transition-colors">
                 {{ formatNumber(dashboardStats.monthOut) }}
                 <span class="text-lg text-gray-400 dark:text-slate-500 font-normal">件</span>
               </p>
             </div>
-            <div class="w-10 h-10 bg-orange-500/20 rounded-xl flex items-center justify-center">
+            <div class="w-10 h-10 bg-orange-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
               <svg class="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16v2a2 2 0 01-2 2H7a2 2 0 01-2-2v-2m4-4V6a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8m-6 4l-4-4" />
               </svg>
@@ -103,15 +149,15 @@
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6">
         <!-- 今日发货总量 -->
         <div class="bg-white dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-200 dark:border-slate-700/50 hover:border-amber-500/50 transition-all duration-300 group shadow-sm dark:shadow-none">
-          <div class="flex items-start justify-between">
-            <div>
+          <div class="flex items-start justify-between gap-2">
+            <div class="flex-shrink-0 min-w-0">
               <p class="text-gray-500 dark:text-slate-400 text-sm mb-1">今日发货总量</p>
               <p class="text-3xl font-bold text-gray-900 dark:text-white group-hover:text-amber-400 transition-colors">
                 {{ formatNumber(stats.todayQuantity) }}
                 <span class="text-lg text-gray-400 dark:text-slate-500 font-normal">件</span>
               </p>
             </div>
-            <div class="w-12 h-12 bg-amber-500/20 rounded-xl flex items-center justify-center">
+            <div class="w-12 h-12 bg-amber-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
               <svg class="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
               </svg>
@@ -127,14 +173,14 @@
 
         <!-- 今日发货成本 -->
         <div class="bg-white dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-200 dark:border-slate-700/50 hover:border-emerald-500/50 transition-all duration-300 group shadow-sm dark:shadow-none">
-          <div class="flex items-start justify-between">
-            <div>
+          <div class="flex items-start justify-between gap-2">
+            <div class="flex-shrink-0 min-w-0">
               <p class="text-gray-500 dark:text-slate-400 text-sm mb-1">今日发货成本</p>
               <p class="text-3xl font-bold text-gray-900 dark:text-white group-hover:text-emerald-400 transition-colors">
                 ¥{{ formatMoney(stats.todayCost) }}
               </p>
             </div>
-            <div class="w-12 h-12 bg-emerald-500/20 rounded-xl flex items-center justify-center">
+            <div class="w-12 h-12 bg-emerald-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
               <svg class="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
@@ -150,15 +196,15 @@
 
         <!-- 本月发货总量 -->
         <div class="bg-white dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-200 dark:border-slate-700/50 hover:border-blue-500/50 transition-all duration-300 group shadow-sm dark:shadow-none">
-          <div class="flex items-start justify-between">
-            <div>
+          <div class="flex items-start justify-between gap-2">
+            <div class="flex-shrink-0 min-w-0">
               <p class="text-gray-500 dark:text-slate-400 text-sm mb-1">本月发货总量</p>
               <p class="text-3xl font-bold text-gray-900 dark:text-white group-hover:text-blue-400 transition-colors">
                 {{ formatNumber(stats.monthQuantity) }}
                 <span class="text-lg text-gray-400 dark:text-slate-500 font-normal">件</span>
               </p>
             </div>
-            <div class="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center">
+            <div class="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
               <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
@@ -171,14 +217,14 @@
 
         <!-- 本月发货成本 -->
         <div class="bg-white dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-200 dark:border-slate-700/50 hover:border-purple-500/50 transition-all duration-300 group shadow-sm dark:shadow-none">
-          <div class="flex items-start justify-between">
-            <div>
+          <div class="flex items-start justify-between gap-2">
+            <div class="flex-shrink-0 min-w-0">
               <p class="text-gray-500 dark:text-slate-400 text-sm mb-1">本月发货成本</p>
               <p class="text-3xl font-bold text-gray-900 dark:text-white group-hover:text-purple-400 transition-colors">
                 ¥{{ formatMoney(stats.monthCost) }}
               </p>
             </div>
-            <div class="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center">
+            <div class="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
               <svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
@@ -192,17 +238,17 @@
 
       <!-- 2. 缺货预警区 -->
       <div class="bg-white dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl border border-gray-200 dark:border-slate-700/50 mb-6 overflow-hidden shadow-sm dark:shadow-none">
-        <div class="p-4 border-b border-gray-200 dark:border-slate-700/50 flex items-center gap-3">
-          <div class="w-10 h-10 bg-red-500/20 rounded-xl flex items-center justify-center">
-            <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="p-3 md:p-4 border-b border-gray-200 dark:border-slate-700/50 flex items-center gap-3 flex-nowrap overflow-x-auto">
+          <div class="w-9 h-9 md:w-10 md:h-10 bg-red-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
+            <svg class="w-4 h-4 md:w-5 md:h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
           </div>
-          <div>
-            <h2 class="text-lg font-bold text-gray-900 dark:text-white">缺货预警</h2>
-            <p class="text-gray-500 dark:text-slate-400 text-sm">库存低于安全库存，需要补货</p>
+          <div class="flex-shrink-0 min-w-0">
+            <h2 class="text-base md:text-lg font-bold text-gray-900 dark:text-white whitespace-nowrap">缺货预警</h2>
+            <p class="text-xs md:text-sm text-gray-500 dark:text-slate-400 whitespace-nowrap">库存低于安全库存，需要补货</p>
           </div>
-          <span class="ml-auto px-3 py-1 bg-red-500/20 text-red-400 text-sm font-medium rounded-full">
+          <span class="ml-auto flex-shrink-0 px-2.5 py-1 md:px-3 md:py-1 bg-red-500/20 text-red-400 text-xs md:text-sm font-medium rounded-full whitespace-nowrap">
             {{ lowStockItems.length }} 项
           </span>
         </div>
@@ -342,15 +388,22 @@
       </div>
 
       <!-- 底部时间 -->
-      <div class="text-center text-gray-400 dark:text-slate-500 text-sm pb-4">
-        数据更新时间: {{ lastUpdateTime }}
+      <div class="flex justify-center pb-4">
+        <div class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-xl border border-gray-200/60 dark:border-slate-700/60 text-gray-500 dark:text-slate-400 text-xs md:text-sm shadow-sm">
+          <svg class="w-3.5 h-3.5 md:w-4 md:h-4 text-cyan-500 dark:text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          <span>数据更新时间: <span class="text-gray-600 dark:text-slate-300 font-medium">{{ lastUpdateTime }}</span></span>
+        </div>
       </div>
     </div>
+  </div>
+  <!-- 关闭 v-else 块 -->
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, nextTick } from 'vue'
+import { ref, reactive, onMounted, nextTick, getCurrentInstance } from 'vue'
 import { Chart, registerables } from 'chart.js'
 import * as XLSX from 'xlsx'
 import { getDashboardStats, getStats, getTrendStats, getTopProducts, getLowStockProducts, exportLogs } from '@/api'
@@ -363,7 +416,23 @@ Chart.register(...registerables)
 const trendChartRef = ref(null)
 let trendChart = null
 const isExporting = ref(false)
+const isLoading = ref(false) // 骨架屏状态
 const lastUpdateTime = ref('')
+
+// 主题切换
+const isDark = ref(false)
+
+function applyTheme(dark) {
+  isDark.value = dark
+  if (dark) {
+    document.documentElement.classList.add('dark')
+  } else {
+    document.documentElement.classList.remove('dark')
+  }
+  localStorage.setItem('theme', dark ? 'dark' : 'light')
+}
+
+function toggleTheme() { applyTheme(!isDark.value) }
 
 // 核心统计数据
 const stats = reactive({
@@ -635,8 +704,19 @@ const currentMonth = getCurrentMonth()
 
 // ==================== 生命周期 ====================
 onMounted(async () => {
+  // 从 localStorage 读取主题（HTML 已预加载 dark class）
+  const saved = localStorage.getItem('theme')
+  const preferDark = saved ? saved === 'dark' : true
+  applyTheme(preferDark)
+  
+  // 显示骨架屏
+  isLoading.value = true
+  
   // 加载数据
   await loadData()
+  
+  // 隐藏骨架屏
+  isLoading.value = false
   
   // 更新时间
   lastUpdateTime.value = new Date().toLocaleString('zh-CN', {
