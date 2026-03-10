@@ -398,8 +398,6 @@
       </div>
     </div>
   </div>
-  <!-- 关闭 v-else 块 -->
-  </div>
 </template>
 
 <script setup>

@@ -894,13 +894,6 @@ app.post('/api/inventory/in', async (req, res) => {
         res.status(500).json({ success: false, message: '入库失败' })
     }
 })
-            }
-        })
-    } catch (error) {
-        console.error('入库失败:', error)
-        res.status(500).json({ success: false, message: '入库失败' })
-    }
-})
 
 /**
  * GET /api/inventory/logs

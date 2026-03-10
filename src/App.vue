@@ -95,15 +95,7 @@ const currentTab = ref('Dashboard')
 const components = { Dashboard, ScanStation, InventoryManage, WarehouseMap }
 const currentComponent = computed(() => components[currentTab.value])
 
-// 移动端底部导航配置
-const mobileTabs = [
-  { key: 'Dashboard',       label: '看板', icon: DashboardIcon   },
-  { key: 'ScanStation',     label: '扫码', icon: ScanStationIcon },
-  { key: 'InventoryManage', label: '库存', icon: InventoryIcon    },
-  { key: 'WarehouseMap',    label: '底图', icon: MapIcon          },
-]
-
-// 底部导航图标组件
+// 底部导航图标组件（需先定义）
 const DashboardIcon = {
   template: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>`
 }
@@ -116,6 +108,14 @@ const InventoryIcon = {
 const MapIcon = {
   template: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>`
 }
+
+// 移动端底部导航配置
+const mobileTabs = [
+  { key: 'Dashboard',       label: '看板', icon: DashboardIcon   },
+  { key: 'ScanStation',     label: '扫码', icon: ScanStationIcon },
+  { key: 'InventoryManage', label: '库存', icon: InventoryIcon    },
+  { key: 'WarehouseMap',    label: '底图', icon: MapIcon          },
+]
 
 // PC 端顶部导航按钮样式
 function navBtnClass(tab) {

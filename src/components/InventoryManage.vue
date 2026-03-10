@@ -484,8 +484,6 @@
       </div>
     </div>
   </div>
-  <!-- 关闭 v-else -->
-  </div>
 </template>
 
 <script setup>
