@@ -526,9 +526,9 @@
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import QRCode from 'qrcode'
 import * as XLSX from 'xlsx'
-import { toast, showConfirm } from '@/composables/useToast.js'
-import { useProduct } from '@/composables/useProduct'
-import { useInventory } from '@/composables/useInventory'
+import { toast, showConfirm } from '@/composables/useToast'
+import { useProduct } from '@/features/inventory/composables/useProduct'
+import { useInventory } from '@/features/inventory/composables/useInventory'
 
 // 使用产品 composable
 const {

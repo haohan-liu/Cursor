@@ -1,9 +1,13 @@
+/**
+ * Axios 实例配置
+ * 使用环境变量配置 API 地址
+ */
 import axios from 'axios'
 
 const api = axios.create({
-  // 👉 这里已经帮你写好了正确的完整的 HTTPS 接口地址
-  baseURL: 'https://api.hc00.cn/api',
-  timeout: 10000,
+  // 使用 Vite 环境变量，支持不同环境不同配置
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api',
+  timeout: import.meta.env.VITE_API_TIMEOUT || 10000,
   headers: {
     'Content-Type': 'application/json'
   }
@@ -30,8 +34,9 @@ api.interceptors.response.use(
   }
 )
 
-// ==================== 统计相关 ====================
+export default api
 
+// ==================== 统计相关 ====================
 export function getDashboardStats() {
   return api.get('/dashboard/stats')
 }
@@ -48,8 +53,11 @@ export function getTopProducts() {
   return api.get('/stats/top-products')
 }
 
-// ==================== 商品相关 ====================
+export function getLowStockProducts() {
+  return api.get('/products/low-stock')
+}
 
+// ==================== 商品相关 ====================
 export function getProductList(params) {
   return api.get('/products', { params })
 }
@@ -74,12 +82,7 @@ export function deleteProduct(id) {
   return api.delete(`/products/${id}`)
 }
 
-export function getLowStockProducts() {
-  return api.get('/products/low-stock')
-}
-
 // ==================== 库存相关 ====================
-
 export function stockOut(data) {
   return api.post('/inventory/out', data)
 }
@@ -96,28 +99,6 @@ export function getInventoryLogs(params) {
   return api.get('/inventory/logs', { params })
 }
 
-// ==================== 库位相关 ====================
-
-export function getLocations() {
-  return api.get('/locations')
-}
-
-export function getLocationByCode(code) {
-  return api.get(`/locations/code/${code}`)
-}
-
-export function createLocation(data) {
-  return api.post('/locations', data)
-}
-
-// ==================== 健康检查 ====================
-
-export function healthCheck() {
-  return api.get('/health')
-}
-
-// ==================== 导出相关 ====================
-
 export function exportInventory() {
   return api.get('/export/inventory')
 }
@@ -126,4 +107,7 @@ export function exportLogs(params) {
   return api.get('/export/logs', { params })
 }
 
-export default api
+// ==================== 库位相关 ====================
+export function getLocations() {
+  return api.get('/locations')
+}

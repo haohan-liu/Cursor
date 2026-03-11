@@ -291,7 +291,7 @@ span<template>
 
 <script setup>
 import { ref, reactive, computed, onMounted, nextTick } from 'vue'
-import { getLocations, getProductList } from '@/api'
+import { getLocations, getProductList } from '@/apis'
 
 // ==================== 货架数据结构 ====================
 // rows 是数组，rows[i] = { cols: N }，每层可独立调整列数

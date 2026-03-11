@@ -234,7 +234,7 @@
 <script setup>
 import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
 import { Html5Qrcode } from 'html5-qrcode'
-import { stockOut, stockIn, getTodayOutboundLogs, getInventoryLogs, getProductBySku } from '@/api'
+import { stockOut, stockIn, getTodayOutboundLogs, getInventoryLogs, getProductBySku } from '@/apis'
 
 const isMobileDevice = ref(false)
 const stationMode = ref('out')

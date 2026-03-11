@@ -1,5 +1,4 @@
 <template>
-  <!-- Toast 消息列表 -->
   <teleport to="body">
     <div class="fixed top-5 right-5 z-[9999] flex flex-col gap-3 pointer-events-none">
       <transition-group name="toast">
@@ -9,7 +8,6 @@
           class="pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl border min-w-[260px] max-w-sm"
           :class="toastClass(item.type)"
         >
-          <!-- 图标 -->
           <svg v-if="item.type === 'success'" class="w-5 h-5 flex-shrink-0 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
@@ -32,11 +30,9 @@
       </transition-group>
     </div>
 
-    <!-- Confirm 对话框 -->
     <transition name="confirm-fade">
       <div v-if="confirmState.visible" class="fixed inset-0 bg-black/60 z-[9998] flex items-center justify-center backdrop-blur-sm" @click.self="handleConfirmCancel">
         <div class="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4">
-          <!-- 图标 -->
           <div class="w-12 h-12 rounded-full bg-amber-500/20 flex items-center justify-center mx-auto mb-4">
             <svg class="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -65,8 +61,7 @@
 </template>
 
 <script setup>
-import { reactive } from 'vue'
-import { toasts, remove, confirmState, handleConfirmOk, handleConfirmCancel } from '@/composables/useToast.js'
+import { toasts, remove, confirmState, handleConfirmOk, handleConfirmCancel } from '@/composables/useToast'
 
 function toastClass(type) {
   const map = {

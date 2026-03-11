@@ -429,8 +429,8 @@
 import { ref, reactive, onMounted, nextTick, getCurrentInstance } from 'vue'
 import { Chart, registerables } from 'chart.js'
 import * as XLSX from 'xlsx'
-import { getDashboardStats, getStats, getTrendStats, getTopProducts, getLowStockProducts, exportLogs } from '@/api'
-import { toast } from '@/composables/useToast.js'
+import { getDashboardStats, getStats, getTrendStats, getTopProducts, getLowStockProducts, exportLogs } from '@/apis'
+import { toast } from '@/composables/useToast'
 
 // 注册 Chart.js
 Chart.register(...registerables)

@@ -84,11 +84,11 @@
 
 <script setup>
 import { ref, computed, onMounted, h } from 'vue'
-import Dashboard       from './components/Dashboard.vue'
-import ScanStation     from './components/ScanStation.vue'
-import InventoryManage from './components/InventoryManage.vue'
-import WarehouseMap    from './components/WarehouseMap.vue'
-import AppToast        from './components/AppToast.vue'
+import Dashboard       from './pages/Dashboard/index.vue'
+import ScanStation     from './pages/ScanStation/index.vue'
+import InventoryManage from './pages/InventoryManage/index.vue'
+import WarehouseMap    from './pages/WarehouseMap/index.vue'
+import AppToast        from './widgets/AppToast.vue'
 
 const currentTab = ref('Dashboard')
 

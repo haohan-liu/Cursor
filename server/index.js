@@ -11,8 +11,38 @@ require('dotenv').config()
 const app = express()
 const PORT = process.env.PORT || 3000
 
-// ==================== 中间件 ====================
-app.use(cors())
+// ==================== CORS 配置 ====================
+// 从环境变量读取允许的域名，支持多个域名（逗号分隔）
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim())
+  : [
+      'http://localhost:5173',
+      'http://localhost:4173',
+      'http://127.0.0.1:5173',
+      'http://127.0.0.1:4173'
+    ]
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    // 允许没有 origin 的请求（如 Postman、本地文件）
+    if (!origin) {
+      return callback(null, true)
+    }
+
+    // 检查 origin 是否在白名单中
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true)
+    } else {
+      console.warn(`🚫 CORS 拦截非法来源: ${origin}`)
+      callback(new Error('不允许的跨域请求'))
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}
+
+app.use(cors(corsOptions))
 app.use(express.json())
 
 // ==================== 数据库连接 ====================

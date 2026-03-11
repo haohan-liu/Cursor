@@ -1,25 +1,23 @@
 import { ref, reactive } from 'vue'
-import { 
-  stockOut, 
-  stockIn, 
-  getTodayOutboundLogs, 
+import {
+  stockOut,
+  stockIn,
+  getTodayOutboundLogs,
   getInventoryLogs,
   exportInventory,
-  exportLogs 
-} from '@/api'
-import { toast } from './useToast'
+  exportLogs
+} from '@/apis'
+import { toast } from '@/composables/useToast'
 
 export function useInventory() {
-  // 今日统计
   const todayStats = reactive({
     totalQuantity: 0,
     totalCost: '0.00'
   })
-  
+
   const recentLogs = ref([])
   const isLoading = ref(false)
 
-  // 出库
   async function outbound(skuCode, quantity = 1, operator = '操作员', remark = '扫码出库') {
     try {
       await stockOut({
@@ -34,7 +32,6 @@ export function useInventory() {
     }
   }
 
-  // 入库
   async function inbound(skuCode, quantity, costPrice, operator = '操作员', remark = '扫码入库') {
     try {
       await stockIn({
@@ -50,7 +47,6 @@ export function useInventory() {
     }
   }
 
-  // 加载今日出库记录
   async function loadTodayOutboundLogs() {
     try {
       const res = await getTodayOutboundLogs()
@@ -63,7 +59,6 @@ export function useInventory() {
     }
   }
 
-  // 加载入库记录
   async function loadInboundLogs(startDate, endDate, pageSize = 100) {
     try {
       const res = await getInventoryLogs({
@@ -81,7 +76,6 @@ export function useInventory() {
     }
   }
 
-  // 重新计算今日统计
   function recalcTodayStats() {
     todayStats.totalQuantity = recentLogs.value.reduce((s, l) => s + l.quantity, 0)
     todayStats.totalCost = recentLogs.value
@@ -89,7 +83,6 @@ export function useInventory() {
       .toFixed(2)
   }
 
-  // 导出库存数据
   async function exportInventoryData() {
     try {
       const res = await exportInventory()
@@ -100,7 +93,6 @@ export function useInventory() {
     }
   }
 
-  // 导出流水记录
   async function exportLogData(params = {}) {
     try {
       const res = await exportLogs(params)

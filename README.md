@@ -1,166 +1,191 @@
-# 汽车水晶档把库存管理系统
+# 🚗 汽车水晶档把库存管理系统
 
-> 这是一个专业的仓库库存管理系统，支持扫码出库、入库管理、库位可视化等核心功能。
+> 企业级仓库库存管理系统，支持扫码出库入库、库位可视化、数据看板等核心功能。
 
-## 系统架构
+[![Node.js](https://img.shields.io/badge/Node.js-18%2B-green)]()
+[![Vue.js](https://img.shields.io/badge/Vue.js-3.4-blue)]()
+[![License](https://img.shields.io/badge/License-ISC-yellow)]()
+
+---
+
+## 📁 项目目录结构
 
 ```
-┌─────────────────┐     ┌─────────────────┐
-│   前端 (Vue3)   │ ──▶ │  后端 (Express) │
-│  http://localhost │     │  http://localhost:3000 │
-│     :5173       │     │                 │
-└─────────────────┘     └────────┬────────┘
-                                 │
-                        ┌────────┴────────┐
-                        │   SQLite/MySQL   │
-                        │   库存数据库     │
-                        └─────────────────┘
+gear-knob-inventory/
+├── src/                          # 前端源代码（Vue 3 + Vite）
+│   ├── apis/                     # 🔌 API 请求层
+│   │   └── index.js              #    统一封装 axios 实例和所有 API 接口
+│   ├── composables/              # 🔧 全局可复用逻辑（组合式函数）
+│   │   ├── useToast.js           #    消息提示 + 确认框
+│   │   └── useProductVersion.js  #    产品版本管理（乐观锁用）
+│   ├── features/                 # 📦 业务功能模块（按功能域划分）
+│   │   └── inventory/            #    库存业务模块
+│   │       └── composables/
+│   │           ├── useInventory.js  # 库存相关业务逻辑
+│   │           └── useProduct.js    # 产品相关业务逻辑
+│   ├── pages/                    # 📄 页面入口组件
+│   │   ├── Dashboard/            #    数据看板页面
+│   │   ├── ScanStation/          #    扫码工作台页面
+│   │   ├── InventoryManage/     #    入库与库存管理页面
+│   │   └── WarehouseMap/         #    库位可视化地图页面
+│   ├── widgets/                  # 🧩 可复用组件块
+│   │   └── AppToast.vue          #    全局 Toast 提示组件
+│   ├── App.vue                   # 🖥️ 根组件（主题切换、路由）
+│   └── main.js                   # ⚡ 入口文件
+│
+├── server/                       # 🌐 后端服务（Node.js + Express）
+│   └── index.js                  #    主服务入口（API 接口、数据库、CRUD）
+│
+├── dist/                         # 📦 前端构建产物（部署用）
+│   ├── index.html
+│   └── assets/
+│
+├── public/                       # 📂 静态资源（若有）
+│
+├── .env.development              # 🔧 开发环境配置（前端）
+├── .env.production               # 🏭 生产环境配置（前端）
+├── .env.server                  # ⚙️ 后端服务器配置
+├── .env.example                  # 📝 配置模板
+│
+├── package.json                  # 📦 项目依赖配置
+├── vite.config.js                # ⚡ Vite 构建配置
+├── tailwind.config.js            # 🎨 Tailwind CSS 配置
+├── postcss.config.js             # 🖌️ PostCSS 配置
+├── ecosystem.config.js           # 🔄 PM2 进程管理配置
+└── README.md                     # 📖 项目文档
 ```
 
 ---
 
-# 第一部分：从 0 到 1 的服务器部署指南
+## 🛠️ 技术栈
 
-> **适用对象**：开发者 / 系统管理员
-
-## 一、运行环境要求
-
-| 环境 | 版本要求 | 说明 |
-|------|----------|------|
-| **Node.js** | ≥ 18.0.0 | 建议使用 LTS 版本 |
-| **npm** | ≥ 9.0.0 | 随 Node.js 安装 |
-| **数据库** | SQLite3 或 MySQL 5.7+ | 默认使用 SQLite，无需额外安装 |
-| **宝塔面板** | 任意版本 | 用于简化服务器管理 |
-| **PM2** | 最新版 | 用于进程管理和开机自启 |
-
-### 推荐的服务器配置
-
-- **CPU**：2 核
-- **内存**：2 GB
-- **系统**：Ubuntu 20.04+ / CentOS 7+
-- **硬盘**：至少 10 GB 可用空间
+| 层级 | 技术 | 版本 |
+|------|------|------|
+| 前端框架 | Vue.js | 3.4+ |
+| 构建工具 | Vite | 5.x |
+| UI 样式 | Tailwind CSS | 3.4+ |
+| HTTP 客户端 | Axios | 1.6+ |
+| 图表库 | Chart.js | 4.4+ |
+| 二维码 | qrcode / html5-qrcode | - |
+| Excel 导出 | xlsx | 0.18+ |
+| 后端框架 | Express | 4.18+ |
+| 数据库 | SQLite3 | 5.1+ |
+| 进程管理 | PM2 | - |
 
 ---
 
-## 二、项目初始化
+## 🚀 快速开始
 
-### 1. 上传项目文件
+### 前置要求
 
-将项目文件夹上传至服务器，推荐路径：
+| 环境 | 版本要求 |
+|------|----------|
+| Node.js | ≥ 18.0.0 |
+| npm | ≥ 9.0.0 |
+
+### 1. 安装依赖
 
 ```bash
-/home/www/gear-knob-inventory
-```
+# 克隆项目后进入目录
+cd gear-knob-inventory
 
-### 2. 安装依赖
-
-```bash
-cd /home/www/gear-knob-inventory
+# 安装前端和后端依赖
 npm install
 ```
 
-### 3. 环境变量配置
-
-项目根目录下已提供 `.env.example` 文件，请复制并配置：
+### 2. 配置环境变量
 
 ```bash
-cp .env.example .env
+# 复制环境配置模板
+cp .env.development .env.development.local
+cp .env.server .env  # 后端配置
 ```
 
-编辑 `.env` 文件：
+#### 前端开发环境配置 (`.env.development.local`)
 
 ```bash
-# 方式一：使用 SQLite（推荐开发/小型部署）
-# 无需修改，直接使用默认值即可
+# API 地址 - 开发环境连接本地后端
+VITE_API_BASE_URL=http://localhost:3000/api
+VITE_API_TIMEOUT=10000
+```
+
+#### 后端配置 (`.env`)
+
+```bash
+# 服务器端口
+PORT=3000
+
+# 运行环境
+NODE_ENV=development
+
+# 数据库路径
 DB_PATH=./inventory.db
 
-# 方式二：使用 MySQL（推荐生产环境）
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_USER=your_db_user        # 请填入实际用户名
-DB_PASSWORD=your_password    # 请填入实际密码
-DB_NAME=gear_knob_inventory # 请填入实际数据库名
+# CORS 配置 - 允许的跨域来源
+CORS_ORIGIN=http://localhost:5173,http://127.0.0.1:5173
 ```
 
-> **注意**：当前默认使用 **SQLite**，无需安装 MySQL 即可直接运行。如需切换到 MySQL，请参考后文「可选：切换到 MySQL」章节。
+### 3. 启动开发模式
+
+```bash
+# 同时启动前端和后端
+npm run start
+```
+
+- 前端访问地址：`http://localhost:5173`
+- 后端 API 地址：`http://localhost:3000/api`
 
 ---
 
-## 三、数据库初始化
+## 🏭 生产环境部署
 
-### 使用 SQLite（默认）
+> 以下步骤适用于 Linux VPS 服务器部署
 
-首次启动后端服务时，系统会自动创建 `inventory.db` 文件，并初始化以下表结构：
+### 一、安全构建前端
 
-- `products` - 商品表
-- `locations` - 库位表
-- `inventory_logs` - 出入库流水表
-- `users` - 用户表
-
-同时会自动插入 **10 条测试商品** 和 **35 个测试库位**，方便快速验证系统功能。
-
-### 使用 MySQL（可选）
-
-如果选择使用 MySQL，请按以下步骤操作：
-
-#### 步骤 1：在宝塔面板创建数据库
-
-1. 登录宝塔面板
-2. 进入 **数据库** → **添加数据库**
-3. 填写信息：
-   - 数据库名：`gear_knob_inventory`
-   - 用户名：`gear_user`（自定义）
-   - 密码：`StrongPassword123!`（请使用强密码）
-   - 权限：**授予所有权限**
-
-#### 步骤 2：导入数据库结构
-
-在项目根目录下执行：
+#### 1. 配置生产环境变量
 
 ```bash
-# 导入表结构（如果有 SQL 文件）
-mysql -u gear_user -p gear_knob_inventory < database.sql
+# 复制生产环境配置
+cp .env.production .env.production.local
 ```
 
-如果没有现成的 SQL 文件，启动后端服务时会自动创建表结构。
+编辑 `.env.production.local`，修改 API 地址：
 
-#### 步骤 3：修改后端代码以支持 MySQL
+```bash
+# 【重要】修改为你的服务器域名或 IP
+VITE_API_BASE_URL=https://your-domain.com/api
 
-> **注意**：当前 `server/index.js` 默认使用 SQLite。如需切换到 MySQL，需要：
-> 1. 安装 MySQL 驱动包（已安装 mysql2）
-> 2. 修改数据库连接代码（需要一定开发基础）
+# 可选：调整超时时间
+VITE_API_TIMEOUT=15000
+```
+
+#### 2. 执行安全构建
+
+```bash
+# 构建生产版本（代码压缩、Tree-shaking）
+npm run build
+```
+
+构建产物输出到 `dist/` 目录。
+
+> ⚠️ **注意**：构建产物中不包含源代码，仅包含编译后的静态文件，安全可部署。
 
 ---
 
-## 四、后端服务部署
+### 二、使用 PM2 守护后端进程
 
-### 方式一：直接运行（开发/测试）
-
-```bash
-cd /home/www/gear-knob-inventory
-npm run server
-```
-
-启动成功后，会显示：
-
-```
-✅ 数据库连接成功！
-🚀 服务器运行在 http://localhost:3000
-```
-
-### 方式二：使用 PM2 部署（生产环境推荐）
-
-#### 步骤 1：全局安装 PM2
+#### 1. 全局安装 PM2
 
 ```bash
 npm install -g pm2
 ```
 
-#### 步骤 2：创建 PM2 启动配置
+#### 2. 创建 PM2 配置文件
 
-在项目根目录创建 `ecosystem.config.js`：
+项目根目录已包含 `ecosystem.config.js`：
 
-```javascript
+```javascript:ecosystem.config.js
 module.exports = {
   apps: [{
     name: 'gear-knob-server',
@@ -181,65 +206,146 @@ module.exports = {
 }
 ```
 
-#### 步骤 3：启动服务
+#### 3. 启动服务
 
 ```bash
-# 启动服务
+# 启动后端服务
 pm2 start ecosystem.config.js
 
-# 设置开机自启
+# 查看运行状态
+pm2 status
+
+# 查看日志
+pm2 logs gear-knob-server
+```
+
+#### 4. 设置开机自启
+
+```bash
+# 生成启动命令
 pm2 startup
+
+# 保存当前进程列表
 pm2 save
 ```
 
 #### 常用 PM2 命令
 
 ```bash
-pm2 status                    # 查看运行状态
-pm2 logs gear-knob-server     # 查看日志
-pm2 restart gear-knob-server # 重启服务
-pm2 stop gear-knob-server    # 停止服务
+pm2 status                      # 查看运行状态
+pm2 logs gear-knob-server     # 查看实时日志
+pm2 restart gear-knob-server  # 重启服务
+pm2 stop gear-knob-server     # 停止服务
+pm2 delete gear-knob-server   # 删除进程
+pm2 monit                    # 监控面板
 ```
 
 ---
 
-## 五、前端打包与部署
+### 三、配置 Nginx 反向代理
 
-### 1. 修改 API 地址
+#### 1. 创建 Nginx 配置文件
 
-在打包前，需要确认 `src/api/index.js` 中的 API 地址是否正确：
+```nginx
+# /etc/nginx/sites-available/gear-knob-inventory
 
-```javascript:src/api/index.js
-const api = axios.create({
-  baseURL: 'http://你的服务器IP:3000/api',  // 修改为实际服务器地址
-  timeout: 10000,
-  // ...
-})
+server {
+    listen 80;
+    server_name your-domain.com;  # 替换为你的域名或服务器 IP
+
+    # 前端静态文件（不暴露源代码）
+    location / {
+        root /home/www/gear-knob-inventory/dist;
+        index index.html;
+        try_files $uri $uri/ /index.html;
+        
+        # 缓存静态资源
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2)$ {
+            expires 30d;
+            add_header Cache-Control "public, immutable";
+        }
+    }
+
+    # API 反向代理到 PM2 端口
+    location /api {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+        
+        # 超时设置
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+
+    # 健康检查
+    location /health {
+        proxy_pass http://127.0.0.1:3000/api/health;
+    }
+}
 ```
 
-> **提示**：如果部署在同一个服务器上，可以使用域名或 IP 地址。
-
-### 2. 构建生产版本
+#### 2. 启用站点配置
 
 ```bash
-npm run build
+# 启用站点
+sudo ln -s /etc/nginx/sites-available/gear-knob-inventory /etc/nginx/sites-enabled/
+
+# 测试配置
+sudo nginx -t
+
+# 重载 Nginx
+sudo systemctl reload nginx
 ```
 
-构建完成后，会在项目根目录生成 `dist` 文件夹。
+---
 
-### 3. 配置 Nginx（宝塔面板）
+### 四、配置 SSL 证书（HTTPS）
+
+#### 方式一：使用 Let's Encrypt 免费证书（推荐）
+
+```bash
+# 安装 certbot
+sudo apt install certbot python3-certbot-nginx
+
+# 获取证书（会自动配置 Nginx）
+sudo certbot --nginx -d your-domain.com
+
+# 测试自动续期
+sudo certbot renew --dry-run
+```
+
+#### 方式二：使用宝塔面板（若已安装）
 
 1. 登录宝塔面板
 2. 进入 **网站** → **添加站点**
-3. 填写域名（或使用 IP）
-4. 创建站点后，进入 **网站设置** → **配置文件**
+3. 填写域名，创建站点
+4. 点击站点右侧 **SSL** 按钮
+5. 选择 **Let's Encrypt** 或上传商业证书
 
-#### 反向代理配置
+#### SSL 配置参考（完整版）
 
 ```nginx
 server {
-    listen 80;
-    server_name your-domain.com;  # 替换为你的域名或IP
+    listen 443 ssl http2;
+    server_name your-domain.com;
+
+    # SSL 证书配置
+    ssl_certificate /etc/letsencrypt/live/your-domain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/your-domain.com/privkey.pem;
+    
+    # SSL 安全配置
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256;
+    ssl_prefer_server_ciphers off;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 1d;
 
     # 前端静态文件
     location / {
@@ -252,422 +358,112 @@ server {
     location /api {
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
-    
-    # WebSocket 支持（如果有）
-    location /ws {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-    }
+}
+
+# HTTP 重定向到 HTTPS
+server {
+    listen 80;
+    server_name your-domain.com;
+    return 301 https://$server_name$request_uri;
 }
 ```
 
-### 4. 开启 HTTPS（可选，推荐）
-
-在宝塔面板中，点击站点右侧的 **SSL** 按钮，选择 **Let's Encrypt** 免费申请 SSL 证书。
-
 ---
 
-## 六、部署检查清单
+### 五、生产环境部署检查清单
 
 - [ ] Node.js 已安装（`node -v`）
 - [ ] npm 依赖已安装（`npm install`）
-- [ ] `.env` 文件已配置
-- [ ] 数据库文件已创建（SQLite）或数据库已创建（MySQL）
-- [ ] 后端服务已启动（PM2）
-- [ ] 防火墙已开放 80/443/3000 端口
-- [ ] 前端已打包（`npm run build`）
+- [ ] `.env.production.local` 已配置线上 API 地址
+- [ ] `.env`（后端）已配置线上域名到 CORS 白名单
+- [ ] 前端已构建（`npm run build`）
+- [ ] PM2 已安装并启动后端服务
 - [ ] Nginx 已配置反向代理
+- [ ] SSL 证书已配置（若使用 HTTPS）
+- [ ] 防火墙已开放 80/443 端口
 - [ ] 访问测试成功
 
 ---
 
-# 第二部分：从 1 到 2 的系统使用指南
+## ⚠️ 重要：绝不能上传的文件
 
-> **适用对象**：仓管员 / 业务员
+以下文件包含敏感信息，**必须**加入 `.gitignore`，**禁止**提交到公开代码仓库：
 
-## 系统模块概览
+| 文件/目录 | 原因 |
+|-----------|------|
+| `.env` | 后端配置（包含敏感端口、CORS 设置） |
+| `.env.*.local` | 本地环境变量 |
+| `.env.production` | 生产环境 API 地址 |
+| `.env.server` | 服务器敏感配置 |
+| `dist/` | 构建产物（应从构建生成，不应提交） |
+| `node_modules/` | npm 依赖（通过 `npm install` 安装） |
+| `*.db` | SQLite 数据库文件 |
+| `*.log` | 日志文件 |
+| `.DS_Store` | macOS 系统文件 |
+| `Thumbs.db` | Windows 系统文件 |
 
-系统分为四大核心模块，通过顶部导航栏切换：
+### 推荐的 .gitignore
 
-| 模块 | 功能 | 入口 |
-|------|------|------|
-| 📊 **数据看板** | 查看库存统计、缺货预警、趋势分析 | 首页默认显示 |
-| 🔫 **扫码工作台** | 扫码出库/入库 | 点击顶部导航 |
-| 📦 **入库与库存** | 商品管理、库存列表、打印标签 | 点击顶部导航 |
-| 🗺️ **库位地图** | 可视化货架、定位商品 | 点击顶部导航 |
+```gitignore
+# 环境配置
+.env
+.env.*
+!.env.example
+
+# 构建产物
+dist/
+
+# 依赖
+node_modules/
+
+# 数据库
+*.db
+
+# 日志
+*.log
+logs/
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+```
 
 ---
 
-## 一、数据看板 (Dashboard)
+## 📖 系统功能模块
 
-### 1.1 核心指标展示
-
-数据看板会自动展示以下关键指标：
-
-| 指标 | 说明 |
-|------|------|
-| **总库存** | 所有商品的库存数量总和（单位：件） |
-| **总资产** | 所有商品的库存成本总和（单位：元） |
-| **本月入库** | 本月累计入库数量 |
-| **本月出库** | 本月累计出库数量 |
-| **今日发货总量** | 今日 0 点至今的出库数量 |
-| **今日发货成本** | 今日 0 点至今的出库成本金额 |
-| **本月发货总量** | 本月 1 日至今的出库数量 |
-| **本月发货成本** | 本月 1 日至今的出库成本金额 |
-
-### 1.2 趋势与排行
-
-- **近 30 天发货趋势**：柱状图展示每日出库数量
-- **本月发货 Top 10**：排行榜展示本月出库量最高的商品
-
-### 1.3 缺货预警
-
-#### 触发条件
-
-当商品的 **当前库存 ≤ 安全库存** 时，该商品会出现在缺货预警列表中。
-
-#### 预警列表内容
-
-| 字段 | 说明 |
-|------|------|
-| SKU条码 | 商品的唯一条码 |
-| 产品名称 | 商品名称 |
-| 当前库存 | 实际库存数量 |
-| 安全库存 | 预设的最低库存阈值 |
-| 状态 | 显示「缺货」标签 |
-
-#### 如何处理缺货
-
-1. 查看缺货预警列表
-2. 确认需要补货的商品
-3. 前往「扫码工作台」进行入库操作
-
-### 1.4 导出功能
-
-点击右上角 **「导出Excel」** 按钮，可导出包含以下内容的 Excel 文件：
-
-- 核心统计数据
-- 缺货预警明细
-- 本月发货排行
-- 全部出入库流水
-
----
-
-## 二、扫码工作台 (ScanStation)
-
-这是系统的核心操作模块，支持 **扫码出库** 和 **扫码入库** 两种模式。
-
-### 2.1 模式切换
-
-页面顶部有明显的切换按钮：
-
-- 📤 **出库模式**（橙色）：扫码后自动扣减库存
-- 📥 **入库模式**（绿色）：扫码后弹窗确认数量和成本价
-
-### 2.2 扫码设备选择
-
-系统支持两种扫码方式：
-
-#### 方式一：PC 扫码枪（默认）
-
-> **适用场景**：使用有线/无线 USB 扫码枪连接电脑
-
-**操作步骤**：
-
-1. 点击页面中的扫码区域，使其获得焦点
-2. 使用扫码枪扫描商品条码
-3. 系统自动识别并处理
-
-**技术原理**：
-
-- 扫码枪模拟键盘输入，扫描完成后自动发送 **回车键 (Enter)**
-- 系统监听键盘事件，捕获扫描内容
-
-**连续扫码**：
-
-- 扫码完成后，系统会自动聚焦回输入框
-- 可以连续扫描下一个商品，无需手动操作
-
-#### 方式二：手机扫码
-
-> **适用场景**：使用手机/平板摄像头扫码
-
-**操作步骤**：
-
-1. 点击 **「手机扫码」** 按钮
-2. 点击 **「开启摄像头扫码」**
-3. 将摄像头对准商品条码
-4. 识别成功后自动处理
-
-**连续扫码**：
-
-- 摄像头保持开启状态
-- 扫到条码后不要关闭摄像头，可连续扫描多个商品
-
-### 2.3 出库操作流程（出库模式）
-
-```
-扫描条码 ──▶ 系统查询商品 ──▶ 自动扣减库存 ──▶ 显示成功提示 ──▶ 记录入流水
-```
-
-**具体步骤**：
-
-1. 确认当前模式为「出库」
-2. 扫描商品条码
-3. 系统自动执行：
-   - 查询商品是否存在
-   - 检查库存是否充足
-   - 扣减库存（默认 1 件）
-   - 记录出库流水
-4. 屏幕显示绿色成功提示（约 1.5 秒）
-5. 今日出库明细自动更新
-
-**异常情况处理**：
-
-| 错误提示 | 原因 | 处理方法 |
-|----------|------|----------|
-| 商品不存在 | 扫描的条码未在系统中创建 | 前往「入库与库存」创建商品 |
-| 库存不足 | 当前库存小于出库数量 | 检查库存或联系管理员 |
-
-### 2.4 入库操作流程（入库模式）
-
-```
-扫描条码 ──▶ 弹窗确认 ──▶ 填写数量和成本价 ──▶ 确认入库 ──▶ 更新库存
-```
-
-**具体步骤**：
-
-1. 切换到「入库模式」
-2. 扫描商品条码
-3. 弹出入库确认窗口，显示：
-   - 商品名称
-   - SKU条码
-   - 当前成本价（自动带入）
-4. 填写：
-   - 入库数量（默认 1 件）
-   - 成本价（可选修改）
-5. 点击 **「确认入库」**
-6. 系统更新库存并记录流水
-
-### 2.5 今日记录明细
-
-页面底部显示 **今日出库/入库明细**，包括：
-
-- 商品名称
-- SKU条码
-- 数量
-- 成本单价
-- 操作时间
-
----
-
-## 三、入库与库存 (InventoryManage)
-
-### 3.1 功能概览
-
-| 功能 | 说明 |
-|------|------|
-| **库存列表** | 查看所有商品的库存明细 |
-| **手动新增** | 创建新的商品档案 |
-| **编辑商品** | 修改商品信息 |
-| **删除商品** | 删除无库存的商品 |
-| **导出库存** | 导出 Excel 表格 |
-| **打印标签** | 打印库位标签（二维码+信息） |
-
-### 3.2 库存列表
-
-展示内容：
-
-| 字段 | 说明 |
-|------|------|
-| SKU条码 | 商品唯一标识 |
-| 商品名称 | 产品名称（大类） |
-| 规格属性 | 以标签形式展示属性（如：螺纹、颜色、发光状态） |
-| 库位号 | 商品存放位置 |
-| 成本价 | 采购成本（元） |
-| 当前库存 | 实时库存数量 |
-| 安全库存 | 最低库存阈值 |
-| 备注 | 备注信息 |
-
-**库存状态颜色**：
-
-- **绿色**：库存充足（当前库存 > 安全库存）
-- **红色加粗**：库存不足（当前库存 ≤ 安全库存）
-
-### 3.3 筛选与搜索
-
-- **按大类筛选**：下拉选择商品名称进行筛选
-- **关键词搜索**：输入商品名称或 SKU条码进行搜索
-
-### 3.4 新增商品
-
-点击 **「手动新增产品」** 按钮，填写表单：
-
-| 字段 | 说明 | 必填 |
-|------|------|------|
-| SKU条码 | 商品唯一条码，如 `路虎-黑钻-M12-发光` | ✅ |
-| 商品名称 | 产品大类名称 | ✅ |
-| 规格与属性 | 动态键值对（可选） | - |
-| 库位号 | 存放位置 | - |
-| 成本价 | 采购单价（元） | - |
-| 当前库存 | 初始库存数量 | - |
-| 安全库存 | 最低库存预警值 | - |
-| 备注 | 备注信息 | - |
-
-**创建后**：
-
-- 系统会提示是否立即打印库位标签
-- 商品自动出现在库存列表中
-
-### 3.5 编辑商品
-
-点击商品行的 **「编辑」** 按钮，可修改除 SKU条码外的所有信息。
-
-### 3.6 删除商品
-
-> **注意**：只有 **库存为 0** 的商品才能被删除。
-
-点击 **「删除」** 按钮，系统会弹出确认框。
-
-### 3.7 打印库位标签
-
-点击商品行的 **「打印标签」** 按钮，支持两种标签尺寸：
-
-| 尺寸 | 适用场景 |
+| 模块 | 功能描述 |
 |------|----------|
-| **40mm × 30mm** | 小型标签，贴在产品包装上 |
-| **70mm × 20mm** | 宽型标签，贴在货架隔板上 |
-
-标签内容包含：
-
-- 商品名称
-- SKU条码（二维码）
-- 规格属性
-- 库位号
-
-### 3.8 导出库存
-
-点击 **「导出库存」** 按钮，下载 Excel 文件，包含所有商品的库存明细。
+| 📊 **数据看板** | 库存统计、趋势图表、缺货预警、导出报表 |
+| 🔫 **扫码工作台** | 扫码出库/入库、支持 PC 扫码枪和手机摄像头 |
+| 📦 **入库与库存** | 商品管理、库存列表、打印标签、Excel 导出 |
+| 🗺️ **库位地图** | 可视化货架布局、商品定位搜索 |
 
 ---
 
-## 四、库位地图 (WarehouseMap)
+## 🔒 安全特性
 
-### 4.1 功能概览
-
-库位地图以可视化的方式展示货架布局，帮助快速定位商品位置。
-
-### 4.2 货架展示
-
-系统默认展示 **A** 和 **B** 两个货架，每个货架分为多层（默认 4 层），每层有多个货位格子。
-
-**货架结构示例**：
-
-```
-┌─────────────────────────────────────┐
-│           货架 A (第4层)            │
-├─────┬─────┬─────┬─────┬─────┬─────┤
-│ A-04│ A-04│ A-04│ A-04│ A-04│  +  │
-│ -01  │ -02  │ -03  │ -04  │ -05  │     │
-├─────┼─────┼─────┼─────┼─────┼─────┤
-│ ... │ ... │ ... │ ... │ ... │     │
-├─────┼─────┼─────┼─────┼─────┼─────┤
-│           货架 A (第1层)            │
-└─────┴─────┴─────┴─────┴─────┴─────┘
-```
-
-### 4.3 货位状态颜色
-
-| 颜色 | 状态 | 说明 |
-|------|------|------|
-| **灰色** | 空货位 | 没有存放任何商品 |
-| **浅蓝色边框** | 有商品（无库存） | 商品已关联，但库存为 0 |
-| **蓝色填充** | 有库存 | 该货位存放了有库存的商品 |
-| **红色边框（闪烁）** | 搜索目标 | 当前搜索定位的货位 |
-
-### 4.4 搜索与定位
-
-1. 在顶部搜索框输入 **SKU条码** 或 **商品名称**
-2. 系统自动定位到目标货位
-3. 该货位会以 **红色闪烁** 形式高亮显示
-4. 同时在搜索结果区显示：
-   - 商品名称
-   - SKU条码
-   - 库位号
-   - 当前库存
-
-### 4.5 货架管理
-
-支持动态调整货架结构：
-
-| 操作 | 按钮 | 功能 |
-|------|------|------|
-| 新增货架 | 右上角「新增货架」 | 添加新货架（A-Z 编号自动分配） |
-| 增加一层 | 货架右侧 `+` 按钮 | 在底部添加新的一层 |
-| 减少一层 | 货架右侧 `-` 按钮 | 移除最顶层（必须为空） |
-| 增加货位 | 行末 `+` 按钮 | 在该层末尾添加一个格子 |
-| 减少货位 | 行末 `-` 按钮 | 移除该层最后一个格子（必须为空） |
-| 删除货架 | 货架右侧垃圾桶图标 | 删除整个货架（必须为空） |
-
-### 4.6 货位信息 Tooltip
-
-鼠标悬停在任意货位格子上，会显示详细信息：
-
-- 库位编码
-- 商品名称
-- SKU条码
-- 规格属性
-- 库存数量
+- **乐观锁**：并发出库入库防止库存超卖
+- **CORS 白名单**：严格控制跨域请求来源
+- **输入验证**：所有 API 请求参数严格校验
+- **SQL 注入防护**：使用参数化查询
 
 ---
 
-## 常见问题解答 (FAQ)
+## 📄 许可证
 
-### Q1: 如何添加新的商品？
-
-1. 进入「入库与库存」模块
-2. 点击「手动新增产品」
-3. 填写商品信息（SKU条码必填）
-4. 点击「创建商品」
-
-### Q2: 扫码枪无法识别怎么办？
-
-1. 检查扫码枪是否正确连接电脑
-2. 确保扫码枪已设置为「回车模式」
-3. 尝试使用手机扫码功能作为替代
-
-### Q3: 库存显示不准确？
-
-1. 确认每次出库/入库都通过系统操作
-2. 检查是否存在手动修改数据库的情况
-3. 可在「数据看板」查看出入库流水进行核对
-
-### Q4: 如何备份数据库？
-
-- **SQLite**：复制 `inventory.db` 文件即可
-- **MySQL**：使用 `mysqldump` 命令或宝塔面板的备份功能
-
-### Q5: 如何查看操作日志？
-
-1. 进入「数据看板」
-2. 点击「导出Excel」
-3. 在生成的文件中查看「出入库流水」Sheet
+ISC License
 
 ---
 
-## 技术支持
-
-如遇到无法解决的问题，请联系系统管理员或开发人员。
-
----
-
-*文档版本：v1.0.0*  
-*最后更新：2024*
+*文档版本：2.0.0*  
+*最后更新：2026-03-11*
