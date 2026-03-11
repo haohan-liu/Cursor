@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen p-4 md:p-6">
+  <div class="min-h-screen p-4 md:p-6 pb-24 md:pb-6">
     <!-- 顶部状态栏 -->
     <div class="max-w-4xl mx-auto mb-6">
       <div class="bg-slate-800/80 backdrop-blur-sm rounded-2xl p-4 shadow-xl border border-slate-700/50">
@@ -565,12 +565,13 @@ function formatAttributes(attributes) {
 
 function formatTime(timeStr) {
   if (!timeStr) return ''
-  const date = new Date(timeStr)
-  return date.toLocaleTimeString('zh-CN', { 
-    hour: '2-digit', 
-    minute: '2-digit',
-    second: '2-digit'
-  })
+  // 安全的时区处理：如果没有 Z 或 +，强行加上 Z 让浏览器转为本地时间
+  let isoStr = timeStr.replace(' ', 'T')
+  if (!isoStr.includes('Z') && !isoStr.includes('+')) isoStr += 'Z'
+  const d = new Date(isoStr)
+  if (isNaN(d.getTime())) return timeStr
+  const p = n => String(n).padStart(2, '0')
+  return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
 }
 </script>
 

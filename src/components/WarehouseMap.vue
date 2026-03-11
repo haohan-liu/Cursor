@@ -1,15 +1,18 @@
-<template>
-  <div class="min-h-screen p-4 md:p-6 space-y-6 transition-colors duration-300">
+span<template>
+  <div class="min-h-screen p-4 md:p-6 space-y-6 transition-colors duration-300 pb-24 md:pb-6">
 
     <!-- ===== 顶栏 ===== -->
     <div class="bg-white/90 dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-4 md:p-5 shadow-sm dark:shadow-xl border border-gray-200 dark:border-slate-700/50">
       <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 class="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">库位地图</h1>
+          <h1 class="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
+            <span class="md:hidden">库位</span>
+            <span class="hidden md:inline">库位地图</span>
+          </h1>
           <p class="text-gray-500 dark:text-slate-400 text-sm">Warehouse Map · 实时库存可视化</p>
         </div>
-        <div class="flex items-center gap-2 md:gap-3">
-          <div class="relative flex-1 min-w-0 sm:flex-none sm:w-52">
+        <div class="flex items-center gap-2 md:gap-3 flex-1">
+          <div class="relative flex-1 min-w-0">
             <input
               v-model="searchKeyword"
               @input="handleSearch"
@@ -28,7 +31,7 @@
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
             </svg>
-            <span class="hidden sm:inline">新增货架</span>
+            <span>新增</span>
           </button>
         </div>
       </div>
@@ -141,15 +144,15 @@
               @mouseleave="hideTooltip"
               @click="handleCellClick(cellCode(shelf.id, rowDesc.rowNum, col))"
               :class="getCellClass(cellCode(shelf.id, rowDesc.rowNum, col))"
-              class="flex-1 min-w-0 h-14 rounded-lg cursor-pointer transition-all duration-200 flex flex-col items-center justify-center overflow-hidden select-none border"
+              class="flex-1 min-w-0 h-12 md:h-14 rounded-lg cursor-pointer transition-all duration-200 flex flex-col items-center justify-center overflow-hidden select-none border"
             >
-              <span class="text-[9px] font-mono font-semibold leading-tight truncate px-0.5">
-                {{ shelf.id }}-{{ String(rowDesc.rowNum).padStart(2,'0') }}
-              </span>
-              <span class="text-[9px] font-mono leading-tight opacity-60">
-                -{{ String(col).padStart(2,'0') }}
-              </span>
-              <span v-if="hasStock(cellCode(shelf.id, rowDesc.rowNum, col))" class="text-[9px] mt-0.5 font-bold leading-tight text-blue-400">
+              <!-- 库位编码：强制单行不换行 -->
+              <div class="flex flex-row flex-nowrap items-center gap-0">
+                <span class="text-[7px] md:text-[9px] font-mono font-semibold leading-tight tracking-tighter">
+                  {{ shelf.id }}-{{ String(rowDesc.rowNum).padStart(2,'0') }}-{{ String(col).padStart(2,'0') }}
+                </span>
+              </div>
+              <span v-if="hasStock(cellCode(shelf.id, rowDesc.rowNum, col))" class="text-[7px] md:text-[8px] mt-0.5 font-bold leading-tight tracking-tight text-blue-400">
                 ×{{ getLocationData(cellCode(shelf.id, rowDesc.rowNum, col))?.stock }}
               </span>
             </div>
@@ -216,7 +219,7 @@
 
     <!-- ===== 图例 ===== -->
     <div class="bg-white/50 dark:bg-slate-800/50 rounded-xl p-3 border border-gray-200 dark:border-slate-700/30">
-      <div class="flex flex-wrap items-center justify-center gap-6 text-xs">
+      <div class="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs">
         <div class="flex items-center gap-2">
           <div class="w-5 h-5 bg-gray-100 dark:bg-slate-700/80 border border-gray-300 dark:border-slate-600 rounded"></div>
           <span class="text-gray-500 dark:text-slate-400">空货位</span>
@@ -229,13 +232,18 @@
           <div class="w-5 h-5 bg-red-500 border-2 border-red-400 rounded animate-pulse"></div>
           <span class="text-gray-500 dark:text-slate-400">搜索目标</span>
         </div>
-        <div class="h-4 w-px bg-gray-300 dark:bg-slate-600"></div>
-        <div class="flex items-center gap-1.5 text-gray-400 dark:text-slate-500">
+        <div class="flex items-center gap-1.5 text-gray-500 dark:text-slate-400">
           <svg class="w-3.5 h-3.5 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <circle cx="12" cy="12" r="4" stroke-width="2.5"/>
             <path stroke-width="2" d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
           </svg>
-          更新时间：{{ lastUpdateTime || '获取中...' }}
+          <span>总库存: {{ totalStock }} 件</span>
+        </div>
+        <div class="flex items-center gap-1.5 text-gray-400 dark:text-slate-500">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          {{ lastUpdateTime || '获取中...' }}
         </div>
       </div>
     </div>
@@ -328,6 +336,13 @@ function cellCode(shelfId, rowNum, col) {
 // ==================== 库位和商品数据 ====================
 const locationData        = ref({})
 const productList         = ref([])
+
+// 计算所有货架的总库存
+const totalStock = computed(() => {
+  return Object.values(locationData.value).reduce((sum, loc) => {
+    return sum + (loc?.stock || 0)
+  }, 0)
+})
 const searchKeyword       = ref('')
 const searchResult        = ref(null)
 const highlightedLocation = ref('')

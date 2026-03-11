@@ -1,6 +1,6 @@
 <template>
   <!-- 骨架屏加载状态 -->
-  <div v-if="isLoading" class="min-h-screen p-4 md:p-6 space-y-6">
+  <div v-if="isLoading" class="min-h-screen w-full h-full block p-4 md:p-6 space-y-6">
     <div class="max-w-7xl mx-auto">
       <!-- 标题栏骨架 -->
       <div class="bg-white dark:bg-slate-800/80 rounded-2xl p-4 flex justify-between items-center">
@@ -34,7 +34,7 @@
   </div>
 
   <!-- 正常内容 -->
-  <div v-else class="min-h-screen p-4 md:p-6 space-y-6 transition-colors duration-300">
+  <div v-else class="min-h-screen w-full h-full block p-4 md:p-6 space-y-6 transition-colors duration-300 pb-24 md:pb-6">
     <div class="max-w-7xl mx-auto bg-white dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-4 shadow-sm dark:shadow-xl border border-gray-200 dark:border-slate-700/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
       <div class="flex items-center gap-3">
         <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
@@ -75,14 +75,19 @@
           </div>
           <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
             <!-- 大类筛选 -->
-            <select
-              v-model="filterCategory"
-              class="pl-3 pr-8 py-2 bg-gray-50 dark:bg-slate-900 border border-gray-300 dark:border-slate-700 rounded-lg text-gray-700 dark:text-slate-300 text-sm focus:ring-1 focus:ring-blue-500 outline-none cursor-pointer min-w-[120px] sm:w-auto"
-              style="background-image: url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 fill=%22none%22 viewBox=%220 0 24 24%22 stroke=%22%236b7280%22><path stroke-linecap=%22round%22 stroke-linejoin=%22round%22 stroke-width=%222%22 d=%22M19 9l-7 7-7-7%22/></svg>'); background-repeat: no-repeat; background-position: right 8px center; background-size: 14px;"
-            >
-              <option value="">全部大类</option>
-              <option v-for="cat in availableCategories" :key="cat" :value="cat">{{ cat }}</option>
-            </select>
+            <div class="relative w-full sm:w-auto">
+              <select
+                v-model="filterCategory"
+                class="appearance-none bg-transparent pr-8 border-gray-300 dark:border-slate-700 text-gray-700 dark:text-slate-300 rounded-lg py-2 pl-3 outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer w-full sm:w-auto min-w-[120px]"
+              >
+                <option value="">全部大类</option>
+                <option v-for="cat in availableCategories" :key="cat" :value="cat">{{ cat }}</option>
+              </select>
+              <!-- 自定义下拉箭头 -->
+              <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+              </div>
+            </div>
             <!-- 关键词搜索 -->
             <div class="relative flex-1 sm:flex-none">
               <input v-model="searchKeyword" type="text" placeholder="搜索产品名称或条码..." class="pl-9 pr-4 py-2 bg-gray-50 dark:bg-slate-900 border border-gray-300 dark:border-slate-700 rounded-lg text-gray-900 dark:text-white text-sm focus:ring-1 focus:ring-blue-500 outline-none w-full sm:w-52">
@@ -330,18 +335,20 @@
     </Teleport>
 
     <!-- 新增/编辑产品弹窗 -->
-    <div v-if="showProductDialog" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 md:p-4">
-      <div class="bg-white dark:bg-slate-800 rounded-xl p-4 md:p-6 max-w-2xl w-full max-h-[85vh] flex flex-col border border-gray-200 dark:border-slate-600 shadow-2xl">
-        <div class="flex items-center justify-between mb-4 flex-shrink-0">
-          <h3 class="text-lg font-bold text-gray-800 dark:text-white">{{ isEdit ? '编辑产品' : '新增产品' }}</h3>
-          <button type="button" @click="closeProductDialog" class="lg:hidden w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-          </button>
-        </div>
+    <Teleport to="body">
+      <transition name="fade">
+        <div v-if="showProductDialog" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 md:p-4" @click.self="closeProductDialog">
+          <div class="bg-white dark:bg-slate-800 rounded-xl p-4 md:p-6 w-full max-w-lg mx-2 max-h-[90vh] flex flex-col border border-gray-200 dark:border-slate-600 shadow-2xl">
+            <div class="flex items-center justify-between mb-4 flex-shrink-0">
+              <h3 class="text-lg font-bold text-gray-800 dark:text-white">{{ isEdit ? '编辑产品' : '新增产品' }}</h3>
+              <button type="button" @click="closeProductDialog" class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
 
-        <form @submit.prevent="submitProduct" class="space-y-4 overflow-y-auto flex-1 pr-1">
+            <form @submit.prevent="submitProduct" class="space-y-4 overflow-y-auto flex-1 pr-1 pb-24">
           <!-- SKU条码 -->
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">SKU条码 <span class="text-red-500">*</span></label>
@@ -351,22 +358,49 @@
           </div>
 
           <!-- 产品名称 (大类) -->
-          <div>
+          <div class="relative">
             <label class="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">商品名称 (大类) <span class="text-red-500">*</span></label>
-            <input v-model="productForm.name" type="text" required
-              list="name-presets"
-              class="w-full border border-gray-300 dark:border-slate-600 rounded-lg px-4 py-2 text-gray-800 dark:text-white dark:bg-slate-700"
-              placeholder="例如：手动挡、路虎旋钮、蓝水晶">
-            <datalist id="name-presets">
-              <option value="手动挡" />
-              <option value="路虎旋钮" />
-              <option value="黑钛色" />
-              <option value="雷克萨斯" />
-              <option value="蓝水晶" />
-              <option value="前按键" />
-              <option value="碳纤维" />
-              <option value="不锈钢" />
-            </datalist>
+            <div class="relative">
+              <input
+                v-model="productForm.name"
+                type="text"
+                required
+                @focus="showNameDropdown = true"
+                @blur="handleNameBlur"
+                @input="filterNameSuggestions"
+                @keydown.enter="selectNameSuggestion"
+                @keydown.escape="showNameDropdown = false"
+                @keydown.down.prevent="navigateSuggestion(1)"
+                @keydown.up.prevent="navigateSuggestion(-1)"
+                class="w-full border border-gray-300 dark:border-slate-600 rounded-lg px-4 py-2 text-gray-800 dark:text-white dark:bg-slate-700 pr-10"
+                placeholder="例如：手动挡、路虎旋钮、蓝水晶"
+              />
+              <!-- 自定义下拉箭头 -->
+              <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
+            <!-- 自定义下拉建议列表 -->
+            <ul
+              v-if="showNameDropdown && filteredNameSuggestions.length > 0"
+              class="absolute z-20 w-full mt-1 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-lg shadow-lg max-h-48 overflow-y-auto"
+            >
+              <li
+                v-for="(suggestion, index) in filteredNameSuggestions"
+                :key="suggestion"
+                :class="[
+                  'px-4 py-2 cursor-pointer text-sm',
+                  selectedSuggestionIndex === index
+                    ? 'bg-blue-500 text-white'
+                    : 'text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700'
+                ]"
+                @mousedown.prevent="selectSuggestion(suggestion)"
+              >
+                {{ suggestion }}
+              </li>
+            </ul>
           </div>
 
           <!-- 规格与属性（动态键值对） -->
@@ -482,15 +516,15 @@
           </div>
         </form>
       </div>
-    </div>
+        </div>
+      </transition>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
-import JsBarcode from 'jsbarcode'
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import QRCode from 'qrcode'
-import printJS from 'print-js'
 import * as XLSX from 'xlsx'
 import { toast, showConfirm } from '@/composables/useToast.js'
 import { useProduct } from '@/composables/useProduct'
@@ -504,15 +538,13 @@ const {
   parseAttrsToSpecPairs,
   buildAttributesPayload,
   fetchProducts,
-  create,
-  update,
+  create: createProduct,
+  update: updateProduct,
   remove: deleteProduct
 } = useProduct()
 
 // 使用库存 composable
-const { 
-  exportInventoryData 
-} = useInventory()
+const { exportInventoryData } = useInventory()
 
 const searchKeyword  = ref('')
 const filterCategory = ref('')
@@ -636,9 +668,67 @@ async function directPrint(item, size) {
 }
 
 
-// 产品弹窗相关
+// 弹窗滚动穿透控制
 const showProductDialog = ref(false)
+const showDeleteConfirm = ref(false)
 const isEdit = ref(false)
+
+// 统一处理所有弹窗的滚动穿透
+watch([showProductDialog, showPrintDialog, showDeleteConfirm], ([prod, print, del]) => {
+  if (prod || print || del) {
+    document.body.style.overflow = 'hidden'
+  } else {
+    document.body.style.overflow = ''
+  }
+})
+
+// 自定义商品名称下拉框
+const showNameDropdown = ref(false)
+const nameSuggestions = ref(['手动挡', '路虎旋钮', '黑钛色', '雷克萨斯', '蓝水晶', '前按键', '碳纤维', '不锈钢'])
+const filteredNameSuggestions = ref([...nameSuggestions.value])
+const selectedSuggestionIndex = ref(-1)
+
+function filterNameSuggestions() {
+  const search = productForm.name.toLowerCase().trim()
+  if (!search) {
+    filteredNameSuggestions.value = [...nameSuggestions.value]
+  } else {
+    filteredNameSuggestions.value = nameSuggestions.value.filter(name => 
+      name.toLowerCase().includes(search)
+    )
+  }
+  showNameDropdown.value = true
+  selectedSuggestionIndex.value = -1
+}
+
+function selectSuggestion(name) {
+  productForm.name = name
+  showNameDropdown.value = false
+  filteredNameSuggestions.value = [...nameSuggestions.value]
+}
+
+function selectNameSuggestion() {
+  if (selectedSuggestionIndex.value >= 0 && filteredNameSuggestions.value[selectedSuggestionIndex.value]) {
+    productForm.name = filteredNameSuggestions.value[selectedSuggestionIndex.value]
+    showNameDropdown.value = false
+  }
+}
+
+function navigateSuggestion(direction) {
+  const len = filteredNameSuggestions.value.length
+  if (len === 0) return
+  selectedSuggestionIndex.value += direction
+  if (selectedSuggestionIndex.value < 0) selectedSuggestionIndex.value = len - 1
+  if (selectedSuggestionIndex.value >= len) selectedSuggestionIndex.value = 0
+}
+
+function handleNameBlur() {
+  // 延迟关闭以允许点击建议项
+  setTimeout(() => {
+    showNameDropdown.value = false
+    selectedSuggestionIndex.value = -1
+  }, 200)
+}
 
 const productForm = reactive({
   id: null,
@@ -700,7 +790,6 @@ function handleSearch() {
 // 删除商品 - 增强防误触机制
 const deleteConfirmInput = ref('')
 const pendingDeleteItem = ref(null)
-const showDeleteConfirm = ref(false)
 
 async function handleDelete(item) {
   // 存储待删除商品，进入二次确认流程
@@ -825,8 +914,7 @@ async function submitProduct() {
 async function handleExport() {
   isExporting.value = true
   try {
-    const res = await exportInventory()
-    const data = res.data || []
+    const data = await exportInventoryData()
     const ws = XLSX.utils.json_to_sheet(data)
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, '库存数据')
@@ -840,21 +928,19 @@ async function handleExport() {
   }
 }
 
-onMounted(() => {
-  // 显示骨架屏
+onMounted(async () => {
   isLoading.value = true
-  
-  // 加载数据
-  fetchInventory()
-  
-  // 隐藏骨架屏
-  isLoading.value = false
-  
+  try {
+    await fetchInventory()
+  } finally {
+    isLoading.value = false
+  }
   document.addEventListener('click', handleDocClick)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', handleDocClick)
+  document.body.style.overflow = ''
 })
 </script>
 

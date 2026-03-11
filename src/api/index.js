@@ -9,6 +9,17 @@ const api = axios.create({
   }
 })
 
+// 请求拦截器：给所有 GET 请求加上时间戳，强制击穿手机浏览器缓存
+api.interceptors.request.use(config => {
+  if (config.method === 'get') {
+    config.params = {
+      ...config.params,
+      _t: new Date().getTime()
+    }
+  }
+  return config
+})
+
 // 响应拦截器
 api.interceptors.response.use(
   response => response.data,
