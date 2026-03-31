@@ -111,3 +111,12 @@ export function exportLogs(params) {
 export function getLocations() {
   return api.get('/locations')
 }
+
+// ==================== 货架配置相关 ====================
+export function getShelves() {
+  return api.get('/shelves')
+}
+
+export function saveShelves(shelves) {
+  return api.put('/shelves', { shelves })
+}

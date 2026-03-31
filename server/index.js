@@ -169,6 +169,17 @@ function initDatabase() {
                 )
             `)
 
+            // 货架配置表
+            db.run(`
+                CREATE TABLE IF NOT EXISTS shelf_config (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    shelf_id VARCHAR(10) UNIQUE NOT NULL,
+                    rows_config TEXT NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            `)
+
             // 插入测试数据（如果表为空）
             db.get("SELECT COUNT(*) as count FROM products", async (err, row) => {
                 if (err) {
@@ -1255,6 +1266,73 @@ app.delete('/api/products/:id', async (req, res) => {
     } catch (error) {
         console.error('删除商品失败:', error)
         res.status(500).json({ success: false, message: '删除商品失败' })
+    }
+})
+
+/**
+ * GET /api/shelves
+ * 获取所有货架配置
+ */
+app.get('/api/shelves', async (req, res) => {
+    try {
+        console.log('[API] GET /api/shelves 被调用')
+        const rows = await dbAll('SELECT shelf_id, rows_config FROM shelf_config ORDER BY shelf_id')
+        console.log('[API] 查询到', rows.length, '条货架配置')
+        res.json({
+            success: true,
+            data: rows.map(row => ({
+                id: row.shelf_id,
+                rows: JSON.parse(row.rows_config)
+            }))
+        })
+    } catch (error) {
+        console.error('[API] 获取货架配置失败:', error)
+        res.status(500).json({ success: false, message: '获取货架配置失败: ' + error.message })
+    }
+})
+
+/**
+ * PUT /api/shelves
+ * 保存所有货架配置（整体替换）
+ */
+app.put('/api/shelves', async (req, res) => {
+    try {
+        const { shelves } = req.body
+        console.log('[API] PUT /api/shelves 被调用，收到数据:', JSON.stringify(shelves))
+
+        if (!Array.isArray(shelves)) {
+            return res.status(400).json({ success: false, message: '货架数据格式错误' })
+        }
+
+        // 使用事务确保数据一致性
+        db.serialize(() => {
+            // 先删除所有现有配置
+            db.run('DELETE FROM shelf_config', (err) => {
+                if (err) {
+                    console.error('[API] 清空货架配置失败:', err)
+                    return res.status(500).json({ success: false, message: '保存货架配置失败' })
+                }
+
+                // 批量插入新配置
+                const stmt = db.prepare('INSERT INTO shelf_config (shelf_id, rows_config) VALUES (?, ?)')
+                for (const shelf of shelves) {
+                    if (shelf.id && Array.isArray(shelf.rows)) {
+                        stmt.run(shelf.id, JSON.stringify(shelf.rows))
+                    }
+                }
+                stmt.finalize((err) => {
+                    if (err) {
+                        console.error('[API] 保存货架配置失败:', err)
+                        return res.status(500).json({ success: false, message: '保存货架配置失败' })
+                    }
+                    console.log('[API] 货架配置已成功保存')
+                    res.json({ success: true, message: '货架配置已保存' })
+                })
+            })
+        })
+    } catch (error) {
+        console.error('[API] 保存货架配置失败:', error)
+        res.status(500).json({ success: false, message: '保存货架配置失败: ' + error.message })
     }
 })
 

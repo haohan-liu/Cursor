@@ -53,7 +53,7 @@ span<template>
     </div>
 
     <!-- ===== 空态 ===== -->
-    <div v-if="shelves.length === 0" class="bg-white/50 dark:bg-slate-800/50 rounded-2xl p-12 text-center border border-dashed border-gray-300 dark:border-slate-700">
+    <div v-if="shelves.length === 0 && !isLoadingShelves" class="bg-white/50 dark:bg-slate-800/50 rounded-2xl p-12 text-center border border-dashed border-gray-300 dark:border-slate-700">
       <svg class="w-16 h-16 mx-auto text-gray-300 dark:text-slate-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
       </svg>
@@ -61,10 +61,19 @@ span<template>
       <p class="text-gray-400 dark:text-slate-600 text-sm mt-1">点击右上角「新增货架」开始配置</p>
     </div>
 
+    <!-- ===== 加载状态 ===== -->
+    <div v-if="isLoadingShelves" class="bg-white/50 dark:bg-slate-800/50 rounded-2xl p-12 text-center border border-dashed border-gray-300 dark:border-slate-700">
+      <div class="flex flex-col items-center gap-3">
+        <div class="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+        <p class="text-gray-500 dark:text-slate-400 text-sm">加载货架配置中...</p>
+      </div>
+    </div>
+
     <!-- ===== 货架列表 ===== -->
     <div
       v-for="(shelf, idx) in shelves"
       :key="shelf.id"
+      v-show="!isLoadingShelves"
       class="bg-white/90 dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-4 md:p-5 shadow-sm dark:shadow-xl border border-gray-200 dark:border-slate-700/50"
     >
       <!-- 货架标题：左侧徽章+名称，右侧图标操作组 -->
@@ -290,16 +299,48 @@ span<template>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { getLocations, getProductList } from '@/apis'
+
+// ==================== 货架配置持久化（使用 localStorage） ====================
+const SHELF_CONFIG_KEY = 'warehouse_shelf_config'
+
+function loadShelfConfigFromStorage() {
+  try {
+    const saved = localStorage.getItem(SHELF_CONFIG_KEY)
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        console.log('[货架配置] 从本地存储加载')
+        return parsed
+      }
+    }
+  } catch (error) {
+    console.error('[货架配置] 读取本地存储失败:', error)
+  }
+  return null
+}
+
+function saveShelfConfigToStorage(data) {
+  try {
+    localStorage.setItem(SHELF_CONFIG_KEY, JSON.stringify(data))
+    console.log('[货架配置] 已保存到本地存储')
+  } catch (error) {
+    console.error('[货架配置] 保存到本地存储失败:', error)
+  }
+}
 
 // ==================== 货架数据结构 ====================
 // rows 是数组，rows[i] = { cols: N }，每层可独立调整列数
 // rows[0] = 第1层（物理最底层），rows[n-1] = 最顶层
-const shelves = ref([
+// 默认配置
+const DEFAULT_SHELVES = [
   { id: 'A', rows: [{ cols: 5 }, { cols: 5 }, { cols: 5 }, { cols: 5 }] },
   { id: 'B', rows: [{ cols: 5 }, { cols: 5 }, { cols: 5 }, { cols: 5 }] }
-])
+]
+
+const shelves = ref([])
+const isLoadingShelves = ref(true)
 
 const SHELF_COLORS = [
   'bg-gradient-to-br from-blue-500 to-cyan-600',
@@ -333,7 +374,44 @@ function cellCode(shelfId, rowNum, col) {
   return `${shelfId}-${String(rowNum).padStart(2, '0')}-${String(col).padStart(2, '0')}`
 }
 
-// ==================== 库位和商品数据 ====================
+// ==================== 货架配置加载与保存 ====================
+function loadShelfConfig() {
+  try {
+    isLoadingShelves.value = true
+    console.log('[货架配置] 正在加载...')
+    const saved = loadShelfConfigFromStorage()
+    if (saved) {
+      shelves.value = saved
+      console.log('[货架配置] 已加载:', JSON.stringify(shelves.value))
+    } else {
+      console.log('[货架配置] 本地存储无数据，使用默认配置')
+      shelves.value = JSON.parse(JSON.stringify(DEFAULT_SHELVES))
+      saveShelfConfigToStorage(shelves.value)
+    }
+  } catch (error) {
+    console.error('[货架配置] 加载失败:', error)
+    shelves.value = JSON.parse(JSON.stringify(DEFAULT_SHELVES))
+  } finally {
+    isLoadingShelves.value = false
+  }
+}
+
+let saveDebounceTimer = null
+function persistShelfConfig() {
+  if (isLoadingShelves.value) {
+    console.log('[货架配置] 正在加载中，跳过保存')
+    return
+  }
+  saveShelfConfigToStorage(shelves.value)
+}
+
+function debouncedSave() {
+  if (saveDebounceTimer) clearTimeout(saveDebounceTimer)
+  saveDebounceTimer = setTimeout(() => {
+    console.log('[货架配置] 防抖触发，开始保存')
+    persistShelfConfig()
+  }, 300)
+}
 const locationData        = ref({})
 const productList         = ref([])
 
@@ -403,6 +481,7 @@ function showWarning(message, conflictCodes = []) {
 function addShelf() {
   const id = nextShelfId()
   shelves.value.push({ id, rows: [{ cols: 5 }, { cols: 5 }, { cols: 5 }, { cols: 5 }] })
+  debouncedSave()
 }
 
 function deleteShelf(shelf) {
@@ -412,12 +491,14 @@ function deleteShelf(shelf) {
     return
   }
   shelves.value = shelves.value.filter(s => s.id !== shelf.id)
+  debouncedSave()
 }
 
 /** 增加一层：在底部追加，cols 默认与底层相同 */
 function addRowToShelf(shelf) {
   const defaultCols = shelf.rows.length > 0 ? shelf.rows[0].cols : 5
   shelf.rows.push({ cols: defaultCols })
+  debouncedSave()
 }
 
 /** 减少顶层（rows 数组最后一项 = 物理最顶层） */
@@ -430,11 +511,13 @@ function removeTopRow(shelf) {
     return
   }
   shelf.rows.pop()
+  debouncedSave()
 }
 
 /** 给某行增加一列 */
 function addColToRow(shelf, rowIndex) {
   shelf.rows[rowIndex].cols++
+  debouncedSave()
 }
 
 /** 给某行减少一列（检查最后一格是否有货） */
@@ -449,6 +532,7 @@ function removeColFromRow(shelf, rowIndex) {
     return
   }
   row.cols--
+  debouncedSave()
 }
 
 // ==================== 安全检查辅助 ====================
@@ -572,7 +656,28 @@ function hideTooltip() { tooltip.visible = false }
 const tooltipStyle = computed(() => ({ left: `${tooltip.x}px`, top: `${tooltip.y}px` }))
 
 // ==================== 生命周期 ====================
-onMounted(() => loadData())
+onMounted(() => {
+  loadShelfConfig()
+  loadData()
+})
+
+// 组件销毁前确保保存数据
+onBeforeUnmount(() => {
+  if (saveDebounceTimer) {
+    clearTimeout(saveDebounceTimer)
+    saveDebounceTimer = null
+  }
+  console.log('[货架配置] 组件即将销毁，执行最终保存')
+  saveShelfConfigToStorage(shelves.value)
+  console.log('[货架配置] 最终保存完成')
+})
+
+// 监听 shelves 变化，确保每次修改都被保存
+watch(shelves, (newVal, oldVal) => {
+  if (isLoadingShelves.value) return
+  console.log('[货架配置] 检测到变化，保存中...')
+  saveShelfConfigToStorage(shelves.value)
+}, { deep: true })
 </script>
 
 <style scoped>
