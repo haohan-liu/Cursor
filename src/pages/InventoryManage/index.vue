@@ -74,19 +74,52 @@
             <span class="text-xs text-gray-400 dark:text-slate-500">{{ filteredList.length }} 条</span>
           </div>
           <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-            <!-- 大类筛选 -->
-            <div class="relative w-full sm:w-auto">
-              <select
-                v-model="filterCategory"
-                class="appearance-none bg-transparent pr-8 border-gray-300 dark:border-slate-700 text-gray-700 dark:text-slate-300 rounded-lg py-2 pl-3 outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer w-full sm:w-auto min-w-[120px]"
+            <!-- 大类筛选（自定义下拉） -->
+            <div ref="categoryDropdownRef" class="relative w-full sm:w-auto">
+              <div
+                @click="toggleCategoryDropdown"
+                class="flex items-center gap-2 border border-gray-300 dark:border-slate-700 rounded-lg py-2 pl-3 pr-8 cursor-pointer bg-white dark:bg-slate-800 hover:border-gray-400 dark:hover:border-slate-600 transition-colors min-w-[120px]"
               >
-                <option value="">全部大类</option>
-                <option v-for="cat in availableCategories" :key="cat" :value="cat">{{ cat }}</option>
-              </select>
-              <!-- 自定义下拉箭头 -->
-              <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                <span :class="filterCategory ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-slate-500'" class="text-sm truncate">
+                  {{ filterCategory || '全部大类' }}
+                </span>
               </div>
+              <!-- 自定义下拉箭头 -->
+              <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500 dark:text-slate-400">
+                <svg class="w-4 h-4 transition-transform" :class="{ 'rotate-180': showCategoryDropdown }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+              <!-- 下拉选项列表 -->
+              <ul
+                v-if="showCategoryDropdown"
+                class="absolute z-20 w-full mt-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+              >
+                <li
+                  :class="[
+                    'px-3 py-2 cursor-pointer text-sm',
+                    filterCategory === ''
+                      ? 'bg-blue-500 text-white'
+                      : 'text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700'
+                  ]"
+                  @click="selectCategory('')"
+                >
+                  全部大类
+                </li>
+                <li
+                  v-for="cat in availableCategories"
+                  :key="cat"
+                  :class="[
+                    'px-3 py-2 cursor-pointer text-sm',
+                    filterCategory === cat
+                      ? 'bg-blue-500 text-white'
+                      : 'text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700'
+                  ]"
+                  @click="selectCategory(cat)"
+                >
+                  {{ cat }}
+                </li>
+              </ul>
             </div>
             <!-- 关键词搜索 -->
             <div class="relative flex-1 sm:flex-none">
@@ -96,21 +129,22 @@
           </div>
         </div>
 
-        <div class="overflow-x-auto flex-1">
-          <table class="w-full text-left border-collapse">
-            <thead class="bg-gray-50 dark:bg-slate-900/50 text-gray-500 dark:text-slate-400 text-sm">
-              <tr>
-                <th class="p-3 font-medium whitespace-nowrap">SKU条码</th>
-                <th class="p-3 font-medium whitespace-nowrap">商品名称</th>
-                <th class="p-3 font-medium whitespace-nowrap">规格属性</th>
-                <th class="p-3 font-medium whitespace-nowrap">库位号</th>
-                <th class="p-3 font-medium whitespace-nowrap text-right">成本价</th>
-                <th class="p-3 font-medium whitespace-nowrap text-center">当前库存</th>
-                <th class="p-3 font-medium whitespace-nowrap text-center">安全库存</th>
-                <th class="p-3 font-medium whitespace-nowrap">备注</th>
-                <th class="p-3 font-medium whitespace-nowrap text-center">操作</th>
-              </tr>
-            </thead>
+        <div class="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 flex-1">
+          <div class="min-w-[700px] sm:min-w-0">
+            <table class="w-full text-left border-collapse">
+              <thead class="bg-gray-50 dark:bg-slate-900/50 text-gray-500 dark:text-slate-400 text-sm">
+                <tr>
+                  <th class="p-3 font-medium whitespace-nowrap">SKU条码</th>
+                  <th class="p-3 font-medium whitespace-nowrap">商品名称</th>
+                  <th class="p-3 font-medium whitespace-nowrap">规格属性</th>
+                  <th class="p-3 font-medium whitespace-nowrap">库位号</th>
+                  <th class="p-3 font-medium whitespace-nowrap text-right">成本价</th>
+                  <th class="p-3 font-medium whitespace-nowrap text-center">当前库存</th>
+                  <th class="p-3 font-medium whitespace-nowrap text-center">安全库存</th>
+                  <th class="p-3 font-medium whitespace-nowrap">备注</th>
+                  <th class="p-3 font-medium whitespace-nowrap text-center">操作</th>
+                </tr>
+              </thead>
             <tbody class="divide-y divide-gray-100 dark:divide-slate-700/50 text-sm">
               <tr v-for="item in filteredList" :key="item.id" class="hover:bg-gray-50 dark:hover:bg-slate-700/20 transition-colors">
                 <!-- SKU -->
@@ -159,6 +193,7 @@
               </tr>
             </tbody>
           </table>
+          </div>
           <div v-if="filteredList.length === 0" class="text-center py-12 text-gray-400 dark:text-slate-500">
             {{ inventoryList.length === 0 ? '暂无库存数据' : '没有符合条件的商品' }}
           </div>
@@ -189,7 +224,7 @@
             <!-- 尺寸模板切换 -->
             <div class="flex gap-2 mb-4">
               <button
-                @click="printLabelSize = '40x30'"
+                @click="switchLabelSize('40x30')"
                 :class="printLabelSize === '40x30'
                   ? 'bg-blue-500 text-white border-blue-500 shadow-lg shadow-blue-500/25'
                   : 'bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-300 border-gray-200 dark:border-slate-600 hover:bg-gray-200 dark:hover:bg-slate-600'"
@@ -199,7 +234,7 @@
                 <div class="text-[10px] opacity-70 font-normal mt-0.5">正方形标签</div>
               </button>
               <button
-                @click="printLabelSize = '70x20'"
+                @click="switchLabelSize('70x20')"
                 :class="printLabelSize === '70x20'
                   ? 'bg-blue-500 text-white border-blue-500 shadow-lg shadow-blue-500/25'
                   : 'bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-300 border-gray-200 dark:border-slate-600 hover:bg-gray-200 dark:hover:bg-slate-600'"
@@ -210,46 +245,25 @@
               </button>
             </div>
 
-            <!-- 预览区 -->
+            <!-- 预览区（Canvas 等比绘制） -->
             <div class="bg-gray-100 dark:bg-slate-900 rounded-xl p-4 mb-3 flex flex-col items-center gap-2">
-              <span class="text-[10px] text-gray-400 dark:text-slate-500">预览（等比缩放 / 非实际尺寸）</span>
-
-              <!-- 40×30 预览 -->
-              <div
+              <span class="text-[10px] text-gray-400 dark:text-slate-500">实际比例预览</span>
+              <!-- 40×30 预览 canvas：200×150px，对应 40×30mm（1mm=5px） -->
+              <canvas
                 v-if="printLabelSize === '40x30'"
-                class="bg-white border-2 border-gray-400 overflow-hidden rounded"
-                style="width:200px;height:150px;padding:4px 6px;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;overflow:hidden;font-family:sans-serif;gap:2px;"
-              >
-                <div style="text-align:center;width:100%;overflow:hidden;flex-shrink:0;">
-                  <div style="font-size:9px;font-weight:bold;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ printItem?.name }}</div>
-                  <div v-if="printAttrs" style="font-size:7px;color:#555;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ printAttrs }}</div>
-                </div>
-                <img v-if="qrDataUrl" :src="qrDataUrl" style="width:85px;height:85px;display:block;flex-shrink:0;" />
-                <div v-else style="width:85px;height:85px;background:#eee;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#999;flex-shrink:0;">生成中…</div>
-                <div style="text-align:center;width:100%;font-size:7px;color:#444;font-weight:600;white-space:nowrap;">库位: {{ printItem?.location_code || '未设置' }}</div>
-              </div>
-
-              <!-- 70×20 预览 -->
-              <div
+                ref="canvas40Ref"
+                width="200"
+                height="150"
+                style="width:200px;height:150px;border:2px solid #9ca3af;border-radius:6px;"
+              />
+              <!-- 70×20 预览 canvas：350×100px，对应 70×20mm（1mm=5px） -->
+              <canvas
                 v-else
-                class="bg-white border-2 border-gray-400 overflow-hidden rounded"
-                style="width:350px;height:100px;padding:4px 6px;box-sizing:border-box;display:flex;align-items:center;gap:8px;font-family:sans-serif;"
-              >
-                <img v-if="qrDataUrl" :src="qrDataUrl" style="width:85px;height:85px;display:block;flex-shrink:0;" />
-                <div v-else style="width:85px;height:85px;background:#eee;border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:#999;">生成中…</div>
-                <div style="flex:1;min-width:0;overflow:hidden;display:flex;flex-direction:column;justify-content:center;gap:3px;">
-                  <div style="font-size:11px;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2;">{{ printItem?.name }}</div>
-                  <div style="font-size:8px;font-family:monospace;color:#555;white-space:nowrap;overflow:hidden;">{{ printItem?.sku_code }}</div>
-                  <div v-if="printAttrs" style="font-size:8px;color:#777;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ printAttrs }}</div>
-                  <div style="font-size:10px;font-weight:bold;color:#333;">库位: {{ printItem?.location_code || '未设置' }}</div>
-                </div>
-              </div>
-            </div>
-
-            <!-- 提示 -->
-            <div class="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-xl px-3 py-2 mb-4 flex items-start gap-2">
-              <span class="text-amber-500 text-sm flex-shrink-0">💡</span>
-              <p class="text-xs text-amber-600 dark:text-amber-400">请在接下来弹出的浏览器打印设置中，修改【打印份数】来控制打印数量。</p>
+                ref="canvas70Ref"
+                width="350"
+                height="100"
+                style="width:350px;height:100px;border:2px solid #9ca3af;border-radius:6px;"
+              />
             </div>
 
             <!-- 操作按钮 -->
@@ -257,7 +271,7 @@
               <button @click="closePrintDialog" class="flex-1 py-2.5 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-700 dark:text-slate-300 rounded-xl font-medium text-sm transition-colors">
                 取消
               </button>
-              <button @click="directPrint(printItem, printLabelSize)" class="flex-1 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-medium text-sm transition-colors flex items-center justify-center gap-1.5">
+              <button @click="generatePrintPdf(printItem, printLabelSize)" class="flex-1 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-medium text-sm transition-colors flex items-center justify-center gap-1.5">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
                 </svg>
@@ -348,7 +362,7 @@
               </button>
             </div>
 
-            <form @submit.prevent="submitProduct" class="space-y-4 overflow-y-auto flex-1 pr-1 pb-24">
+            <form @submit.prevent="submitProduct" class="space-y-4 overflow-y-auto flex-1 pr-1 pb-4 min-w-0 overflow-x-hidden">
           <!-- SKU条码 -->
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">SKU条码 <span class="text-red-500">*</span></label>
@@ -429,20 +443,20 @@
                 <input
                   v-model="pair.key"
                   type="text"
-                  placeholder="属性名（如：螺纹）"
-                  class="flex-1 border border-gray-300 dark:border-slate-600 rounded-lg px-3 py-1.5 text-gray-800 dark:text-white dark:bg-slate-700 text-sm"
+                  placeholder="属性名"
+                  class="flex-1 min-w-0 border border-gray-300 dark:border-slate-600 rounded-lg px-2 py-1.5 text-gray-800 dark:text-white dark:bg-slate-700 text-sm truncate"
                 />
-                <span class="text-gray-400 dark:text-slate-500 text-sm flex-shrink-0">:</span>
+                <span class="text-gray-400 dark:text-slate-500 text-sm flex-shrink-0 select-none">:</span>
                 <input
                   v-model="pair.val"
                   type="text"
-                  placeholder="属性值（如：10mm）"
-                  class="flex-1 border border-gray-300 dark:border-slate-600 rounded-lg px-3 py-1.5 text-gray-800 dark:text-white dark:bg-slate-700 text-sm"
+                  placeholder="属性值"
+                  class="flex-1 min-w-0 border border-gray-300 dark:border-slate-600 rounded-lg px-2 py-1.5 text-gray-800 dark:text-white dark:bg-slate-700 text-sm truncate"
                 />
                 <button
                   type="button"
                   @click="removeSpecPair(idx)"
-                  class="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-red-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                  class="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-lg text-red-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
                   title="删除此规格"
                 >
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -463,9 +477,9 @@
             <!-- 预览合并结果 -->
             <div
               v-if="specPairs.length > 0"
-              class="mt-2 px-3 py-1.5 bg-gray-50 dark:bg-slate-900/50 border border-gray-200 dark:border-slate-700 rounded-lg text-xs text-gray-500 dark:text-slate-400 font-mono break-all"
+              class="mt-2 px-3 py-1.5 bg-gray-50 dark:bg-slate-900/50 border border-gray-200 dark:border-slate-700 rounded-lg text-xs text-gray-500 dark:text-slate-400 font-mono overflow-hidden"
             >
-              {{ specPairsPreview }}
+              <div class="break-words max-w-full">{{ specPairsPreview }}</div>
             </div>
           </div>
 
@@ -525,6 +539,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import QRCode from 'qrcode'
+import { jsPDF } from 'jspdf'
 import * as XLSX from 'xlsx'
 import { toast, showConfirm } from '@/composables/useToast'
 import { useProduct } from '@/features/inventory/composables/useProduct'
@@ -572,8 +587,9 @@ const showPrintDialog = ref(false)
 const printItem       = ref(null)
 const printLabelSize  = ref('40x30')   // '40x30' | '70x20'
 const qrDataUrl       = ref('')
+const canvas40Ref = ref(null)
+const canvas70Ref = ref(null)
 
-// 属性描述字符串（供预览用）
 const printAttrs = computed(() => {
   const item = printItem.value
   if (!item) return ''
@@ -584,86 +600,211 @@ const printAttrs = computed(() => {
   return [item.color_style, item.thread_size, item.light_status].filter(Boolean).join(' · ')
 })
 
-// 打开打印弹窗
+function handleDocClick(e) {
+  if (showCategoryDropdown.value && categoryDropdownRef.value && !categoryDropdownRef.value.contains(e.target)) {
+    showCategoryDropdown.value = false
+  }
+}
+
+function fitSingleLineText(ctx, text, maxWidth) {
+  if (!text) return ''
+  if (ctx.measureText(text).width <= maxWidth) return text
+  const ellipsis = '...'
+  let left = 0
+  let right = text.length
+  while (left < right) {
+    const mid = Math.floor((left + right + 1) / 2)
+    const candidate = text.slice(0, mid) + ellipsis
+    if (ctx.measureText(candidate).width <= maxWidth) left = mid
+    else right = mid - 1
+  }
+  return text.slice(0, left) + ellipsis
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => resolve(img)
+    img.onerror = reject
+    img.src = src
+  })
+}
+
+async function renderLabelToCanvas(canvas, item, size, qrSrc, pxPerMm) {
+  const ctx = canvas.getContext('2d')
+  const lw = size === '40x30' ? 40 : 70
+  const lh = size === '40x30' ? 30 : 20
+  const mm = (n) => n * pxPerMm
+  const fontFamily = '"Microsoft YaHei","PingFang SC","Segoe UI",sans-serif'
+  const attrs = (() => {
+    if (item.attributes) {
+      const tags = parseAttrsToTags(item.attributes)
+      if (tags.length) return tags.map(t => `${t.key}:${t.val}`).join(' · ')
+    }
+    return [item.color_style, item.thread_size, item.light_status].filter(Boolean).join(' · ')
+  })()
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+  ctx.textBaseline = 'middle'
+
+  const qrImg = await loadImage(qrSrc)
+
+  if (size === '40x30') {
+    const centerX = canvas.width / 2
+    const textWidth = canvas.width - mm(4)
+
+    // 商品名称（顶部，y=3.5mm）
+    ctx.textAlign = 'center'
+    ctx.fillStyle = '#111111'
+    ctx.font = `700 ${mm(2.9)}px ${fontFamily}`
+    const name = fitSingleLineText(ctx, item.name || '', textWidth)
+    ctx.fillText(name, centerX, mm(3.5))
+
+    // 二维码（y=5mm，大小16mm，底部到21mm）
+    const qrSize = mm(16)
+    const qrX = centerX - qrSize / 2
+    const qrY = mm(5)
+    ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize)
+
+    // 属性信息（二维码下方，y=23.5mm）
+    if (attrs) {
+      ctx.fillStyle = '#555555'
+      const attrsFontSize = attrs.length > 20 ? mm(1.8) : mm(2.0)
+      ctx.font = `${attrsFontSize}px ${fontFamily}`
+      const attrsLine = fitSingleLineText(ctx, attrs, textWidth)
+      ctx.fillText(attrsLine, centerX, mm(23.5))
+    }
+
+    // 库位信息（底部，y=27.5mm）
+    ctx.fillStyle = '#222222'
+    ctx.font = `700 ${mm(2.6)}px ${fontFamily}`
+    const loc = fitSingleLineText(ctx, `库位: ${item.location_code || '未设置'}`, textWidth)
+    ctx.fillText(loc, centerX, mm(27.5))
+  } else {
+    // 70x20mm 标签布局
+    const padLeft = mm(2)
+    const padRight = mm(2)
+    const padTop = mm(1.5)
+    const qrSize = mm(16)
+    const qrX = padLeft
+    const qrY = padTop
+
+    // 二维码（左侧）
+    ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize)
+
+    const textX = qrX + qrSize + mm(2)
+    const textWidth = canvas.width - textX - padRight
+
+    ctx.textAlign = 'left'
+
+    // 商品名称（右上，与二维码顶部对齐）
+    ctx.fillStyle = '#111111'
+    ctx.font = `700 ${mm(3.2)}px ${fontFamily}`
+    const name = fitSingleLineText(ctx, item.name || '', textWidth)
+    ctx.fillText(name, textX, mm(4.5))
+
+    // 库位信息（右侧中部）
+    ctx.fillStyle = '#222222'
+    ctx.font = `700 ${mm(2.6)}px ${fontFamily}`
+    const loc = fitSingleLineText(ctx, `库位: ${item.location_code || '未设置'}`, textWidth)
+    ctx.fillText(loc, textX, mm(8.5))
+
+    // 属性信息（右下）
+    if (attrs) {
+      ctx.fillStyle = '#666666'
+      const attrsFontSize = attrs.length > 24 ? mm(1.8) : mm(2.0)
+      ctx.font = `${attrsFontSize}px ${fontFamily}`
+      const attrsLine = fitSingleLineText(ctx, attrs, textWidth)
+      ctx.fillText(attrsLine, textX, mm(12.5))
+    }
+
+    ctx.fillStyle = '#555555'
+    ctx.font = `${mm(2.0)}px "Courier New",monospace`
+    const sku = fitSingleLineText(ctx, item.sku_code || '', textWidth)
+    ctx.fillText(sku, textX, mm(16))
+  }
+}
+
 async function openPrintDialog(item) {
   printItem.value = item
   qrDataUrl.value = ''
   showPrintDialog.value = true
   await nextTick()
-  // 生成二维码预览
   try {
     qrDataUrl.value = await QRCode.toDataURL(item.sku_code || item.name || '', {
-      width: 256, margin: 0, color: { dark: '#000000', light: '#ffffff' }
+      width: 1024,
+      margin: 1,
+      color: { dark: '#000000', light: '#ffffff' }
     })
-  } catch (e) { console.error('生成二维码失败', e) }
+    await nextTick()
+    await drawPreview()
+  } catch (e) {
+    console.error('生成二维码失败', e)
+  }
 }
 
-// 关闭打印弹窗
 function closePrintDialog() {
   showPrintDialog.value = false
   printItem.value = null
   qrDataUrl.value = ''
 }
 
-// 点击页面其他地方（仅用于关闭可能残留的下拉，当前无下拉，保留不影响）
-function handleDocClick() {}
+async function switchLabelSize(size) {
+  printLabelSize.value = size
+  await nextTick()
+  await drawPreview()
+}
 
-// 打印（window.open 独立窗口）
-async function directPrint(item, size) {
-  closePrintDialog()
+async function drawPreview() {
+  if (!printItem.value || !qrDataUrl.value) return
+  const canvas = printLabelSize.value === '40x30' ? canvas40Ref.value : canvas70Ref.value
+  if (!canvas) return
+  const lw = printLabelSize.value === '40x30' ? 40 : 70
+  const pxPerMm = canvas.width / lw
+  await renderLabelToCanvas(canvas, printItem.value, printLabelSize.value, qrDataUrl.value, pxPerMm)
+}
+
+async function generatePrintPdf(item, size) {
   try {
-    const qr = await QRCode.toDataURL(item.sku_code || item.name, {
-      width: 256, margin: 0, color: { dark: '#000000', light: '#ffffff' }
+    closePrintDialog()
+    const lw = size === '40x30' ? 40 : 70
+    const lh = size === '40x30' ? 30 : 20
+    const pxPerMm = 300 / 25.4
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.round(lw * pxPerMm)
+    canvas.height = Math.round(lh * pxPerMm)
+    const qrHiRes = await QRCode.toDataURL(item.sku_code || item.name || '', {
+      width: 2048,
+      margin: 1,
+      color: { dark: '#000000', light: '#ffffff' }
     })
-    const attrsStr = parseAttrsToTags(item.attributes).map(t => `${t.key}: ${t.val}`).join(' · ')
-      || [item.color_style, item.thread_size, item.light_status].filter(Boolean).join(' · ')
+    await renderLabelToCanvas(canvas, item, size, qrHiRes, pxPerMm)
 
-    const loc  = item.location_code || '未设置'
-    const name = item.name || ''
-    const sku  = item.sku_code || ''
-    const is40 = size === '40x30'
+    const imgData = canvas.toDataURL('image/png')
+    // 强制页面方向与标签方向一致，避免浏览器 PDF 预览旋转 90°
+    const orientation = lw >= lh ? 'landscape' : 'portrait'
+    const doc = new jsPDF({ unit: 'mm', format: [lw, lh], orientation })
+    const pageW = doc.internal.pageSize.getWidth()
+    const pageH = doc.internal.pageSize.getHeight()
+    doc.addImage(imgData, 'PNG', 0, 0, pageW, pageH)
 
-    const labelHtml = is40
-      ? /* 40×30 — 紧凑正方形 */
-        `<div style="width:40mm;height:30mm;padding:1mm 1.5mm 1mm 1.5mm;box-sizing:border-box;
-                     display:flex;flex-direction:column;align-items:center;
-                     overflow:hidden;font-family:Arial,sans-serif;gap:0.5mm;">
-           <div style="text-align:center;width:100%;overflow:hidden;flex-shrink:0;">
-             <div style="font-size:5.5pt;font-weight:bold;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${name}</div>
-             ${attrsStr ? `<div style="font-size:3.5pt;color:#555;margin-top:0.3mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${attrsStr}</div>` : ''}
-           </div>
-           <img src="${qr}" style="width:21mm;height:21mm;display:block;flex-shrink:0;" />
-           <div style="text-align:center;width:100%;font-size:4pt;color:#444;font-weight:600;white-space:nowrap;">库位: ${loc}</div>
-         </div>`
-      : /* 70×20 — 宽扁横向 */
-        `<div style="width:70mm;height:20mm;padding:0.8mm 1.5mm;box-sizing:border-box;
-                     display:flex;align-items:center;gap:1.5mm;
-                     overflow:hidden;font-family:Arial,sans-serif;">
-           <img src="${qr}" style="width:18mm;height:18mm;display:block;flex-shrink:0;" />
-           <div style="flex:1;min-width:0;overflow:hidden;display:flex;flex-direction:column;justify-content:center;gap:0.6mm;">
-             <div style="font-size:6.5pt;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2;">${name}</div>
-             <div style="font-size:4pt;font-family:monospace;color:#444;white-space:nowrap;overflow:hidden;">${sku}</div>
-             ${attrsStr ? `<div style="font-size:3.5pt;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${attrsStr}</div>` : ''}
-             <div style="font-size:5pt;font-weight:700;color:#111;">库位: ${loc}</div>
-           </div>
-         </div>`
-
-    const pageSize = is40 ? '40mm 30mm' : '70mm 20mm'
-    const win = window.open('', '_blank', 'width=500,height=400')
-    if (!win) { toast.warning('请允许弹出窗口以完成打印'); return }
-    win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/>
-<style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-  @page { size:${pageSize}; margin:0; }
-  html, body { width:${is40 ? '40mm' : '70mm'}; height:${is40 ? '30mm' : '20mm'}; overflow:hidden; }
-  body { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-</style>
-</head><body>${labelHtml}</body></html>`)
-    win.document.close()
-    win.focus()
-    setTimeout(() => { win.print(); win.close() }, 350)
+    const pdfBlob = doc.output('blob')
+    const pdfUrl = URL.createObjectURL(pdfBlob)
+    const pdfName = `标签_${item.sku_code || item.name}_${size}.pdf`
+    const win = window.open(pdfUrl, '_blank')
+    if (!win) {
+      URL.revokeObjectURL(pdfUrl)
+      toast.warning('请允许弹出窗口以查看 PDF')
+      return
+    }
+    win.addEventListener('load', () => {
+      try { win.document.title = pdfName } catch (_) {}
+    })
+    toast.success('PDF 已生成，可在新窗口中打印')
   } catch (err) {
-    toast.error('生成打印内容失败：' + err.message)
+    toast.error('生成 PDF 失败：' + err.message)
   }
 }
 
@@ -687,6 +828,19 @@ const showNameDropdown = ref(false)
 const nameSuggestions = ref(['手动挡', '路虎旋钮', '黑钛色', '雷克萨斯', '蓝水晶', '前按键', '碳纤维', '不锈钢'])
 const filteredNameSuggestions = ref([...nameSuggestions.value])
 const selectedSuggestionIndex = ref(-1)
+
+// 大类筛选下拉
+const showCategoryDropdown = ref(false)
+const categoryDropdownRef = ref(null)
+
+function toggleCategoryDropdown() {
+  showCategoryDropdown.value = !showCategoryDropdown.value
+}
+
+function selectCategory(cat) {
+  filterCategory.value = cat
+  showCategoryDropdown.value = false
+}
 
 function filterNameSuggestions() {
   const search = productForm.name.toLowerCase().trim()

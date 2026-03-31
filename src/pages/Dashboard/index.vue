@@ -33,8 +33,22 @@
   <div v-else class="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-slate-900 dark:to-slate-800 p-4 md:p-6 transition-colors duration-300 pb-24 md:pb-6">
     <div class="max-w-7xl mx-auto">
       <!-- 顶部标题栏 -->
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div>
+      <div class="relative flex flex-col gap-4 mb-6">
+        <!-- 右上角主题切换（仅手机端显示，与标题对齐） -->
+        <button
+          @click="toggleTheme"
+          :title="isDark ? '切换到亮色模式' : '切换到暗色模式'"
+          class="md:hidden absolute top-1 right-0 flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-600 dark:text-slate-300"
+        >
+          <svg v-if="isDark" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+          </svg>
+          <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+          </svg>
+        </button>
+
+        <div class="pr-12">
           <h1 class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">数据看板</h1>
           <p class="text-gray-500 dark:text-slate-400 text-sm">Inventory Dashboard</p>
         </div>
@@ -418,11 +432,24 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, nextTick, getCurrentInstance } from 'vue'
+import { ref, reactive, onMounted, nextTick } from 'vue'
 import { Chart, registerables } from 'chart.js'
 import * as XLSX from 'xlsx'
 import { getDashboardStats, getStats, getTrendStats, getTopProducts, getLowStockProducts, exportLogs } from '@/apis'
 import { toast } from '@/composables/useToast'
+
+// ==================== 主题切换（同步父组件状态） ====================
+const isDark = ref(false)
+
+function toggleTheme() {
+  isDark.value = !isDark.value
+  if (isDark.value) {
+    document.documentElement.classList.add('dark')
+  } else {
+    document.documentElement.classList.remove('dark')
+  }
+  localStorage.setItem('theme', isDark.value ? 'dark' : 'light')
+}
 
 // 注册 Chart.js
 Chart.register(...registerables)
@@ -433,21 +460,6 @@ let trendChart = null
 const isExporting = ref(false)
 const isLoading = ref(false) // 骨架屏状态
 const lastUpdateTime = ref('')
-
-// 主题切换
-const isDark = ref(false)
-
-function applyTheme(dark) {
-  isDark.value = dark
-  if (dark) {
-    document.documentElement.classList.add('dark')
-  } else {
-    document.documentElement.classList.remove('dark')
-  }
-  localStorage.setItem('theme', dark ? 'dark' : 'light')
-}
-
-function toggleTheme() { applyTheme(!isDark.value) }
 
 // 核心统计数据
 const stats = reactive({
@@ -719,11 +731,6 @@ const currentMonth = getCurrentMonth()
 
 // ==================== 生命周期 ====================
 onMounted(async () => {
-  // 从 localStorage 读取主题（HTML 已预加载 dark class）
-  const saved = localStorage.getItem('theme')
-  const preferDark = saved ? saved === 'dark' : true
-  applyTheme(preferDark)
-  
   // 显示骨架屏
   isLoading.value = true
   
